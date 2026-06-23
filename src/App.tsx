@@ -60,9 +60,11 @@ function App() {
   function runPrediction() {
     if (tab === "结果" && hasRun) {
       setTab("测算");
+      setOpenReadingId(null);
       return;
     }
     setHasRun(true);
+    setOpenReadingId(enabledMethods[0] ?? null);
     setTab("结果");
   }
 
@@ -226,6 +228,9 @@ function App() {
                       <div>
                         <h3>{reading.title}</h3>
                         <p>{reading.explanation}</p>
+                        <div className="signal-summary" aria-label="测算势能">
+                          {reading.signalSummary}
+                        </div>
                       </div>
                       <div className="reading-meta">
                         <span>{reading.scoreHint}</span>

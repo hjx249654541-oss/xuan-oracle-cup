@@ -596,6 +596,18 @@ p {
   line-height: 1.5;
 }
 
+.signal-summary {
+  width: fit-content;
+  margin-top: 8px;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 211, 111, 0.28);
+  border-radius: 8px;
+  color: #ffd36f;
+  background: rgba(255, 211, 111, 0.08);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .reading-meta {
   display: grid;
   justify-items: end;

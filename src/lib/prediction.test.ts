@@ -51,4 +51,48 @@ describe("buildPrediction", () => {
       expect(reading.processSteps.every((step) => step.label.length > 0 && step.value.length > 0)).toBe(true);
     }
   });
+
+  it("exposes numeric divination signals that explain the winner and score", () => {
+    const match = worldCupMatches[0];
+    const prediction = buildPrediction(match, ["tarot", "liuren", "astro"]);
+
+    for (const reading of prediction.readings) {
+      expect(reading.processSteps.map((step) => step.label)).toEqual(
+        expect.arrayContaining(["原始取数", "主队势能", "客队势能", "平局牵引", "比分落点"])
+      );
+      expect(reading.processSteps.find((step) => step.label === "主队势能")?.value).toMatch(/^\d+$/);
+      expect(reading.processSteps.find((step) => step.label === "客队势能")?.value).toMatch(/^\d+$/);
+      expect(reading.processSteps.find((step) => step.label === "比分落点")?.value).toMatch(/^\d+-\d+$/);
+    }
+  });
+
+  it("keeps each method score aligned with its own score landing", () => {
+    const match = worldCupMatches[0];
+    const prediction = buildPrediction(match, ["tarot", "liuren", "astro"]);
+
+    for (const reading of prediction.readings) {
+      expect(reading.scoreHint).toBe(reading.processSteps.find((step) => step.label === "比分落点")?.value);
+    }
+    expect(Number.isInteger(prediction.upsetIndex)).toBe(true);
+  });
+
+  it("uses method-specific divination mechanics in every reading", () => {
+    const match = worldCupMatches[0];
+    const expectations: Record<MethodId, string[]> = {
+      tarot: ["洗牌种子", "牌阵抽取"],
+      liuren: ["月日时起课", "三宫落点"],
+      astro: ["三骰结果", "星骰加权"],
+      meihua: ["年月日时", "本互变卦"],
+      qimen: ["局数排宫", "门星宫"],
+      oracle: ["签号", "签诗"]
+    };
+
+    for (const methodId of predictionMethods.map((method) => method.id)) {
+      const reading = buildPrediction(match, [methodId]).readings[0];
+      const labels = reading.processSteps.map((step) => step.label);
+      for (const expectedLabel of expectations[methodId]) {
+        expect(labels).toContain(expectedLabel);
+      }
+    }
+  });
 });
