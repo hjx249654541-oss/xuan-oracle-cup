@@ -201,6 +201,29 @@ const astronomyBodies = [
   ["木星", Astronomy.Body.Jupiter],
   ["土星", Astronomy.Body.Saturn]
 ] as const;
+const teamPowerRatings: Record<string, number> = {
+  阿根廷: 94,
+  法国: 93,
+  英格兰: 91,
+  葡萄牙: 90,
+  西班牙: 89,
+  巴西: 89,
+  荷兰: 87,
+  克罗地亚: 84,
+  哥伦比亚: 82,
+  美国: 78,
+  摩洛哥: 78,
+  日本: 77,
+  瑞典: 76,
+  土耳其: 75,
+  加纳: 73,
+  乌兹别克斯坦: 68,
+  巴拿马: 64,
+  海地: 58,
+  约旦: 58,
+  刚果民主共和国: 67,
+  待定球队: 70
+};
 
 export function buildPrediction(match: WorldCupMatch, enabledMethods: MethodId[]): PredictionSummary {
   const selected = (enabledMethods.length > 0 ? enabledMethods : predictionMethods.map((method) => method.id)).slice(0, 3);
@@ -247,25 +270,26 @@ function buildReading(methodId: MethodId, match: WorldCupMatch, seed: number): I
   const astroContext = getAstroContext(match);
   const lunisolarContext = getLunisolarContext(match);
   const calculationKey = methodSeed.toString(16).padStart(8, "0").slice(0, 8);
-  const homeBase = 42 + (stableHash(`${methodId}:home:${match.home}:${match.date}`) % 43);
-  const awayBase = 42 + (stableHash(`${methodId}:away:${match.away}:${match.localTime}`) % 43);
-  const drawBase = 24 + (stableHash(`${methodId}:draw:${match.group}:${match.venue}`) % 37);
+  const baseline = buildMatchBaseline(match);
   const cast = castMethod(methodId, match, methodSeed, astroContext, lunisolarContext);
-  const homeSignal = clamp(homeBase + cast.tilt.home, 12, 99);
-  const awaySignal = clamp(awayBase + cast.tilt.away, 12, 99);
-  const drawSignal = clamp(drawBase + cast.tilt.draw, 8, 99);
+  const homeSignal = clamp(Math.round(baseline.home + cast.tilt.home), 12, 99);
+  const awaySignal = clamp(Math.round(baseline.away + cast.tilt.away), 12, 99);
+  const drawSignal = clamp(Math.round(baseline.draw + cast.tilt.draw), 8, 99);
   const winnerSide = drawSignal >= Math.max(homeSignal, awaySignal) - 5 ? "draw" : homeSignal >= awaySignal ? "home" : "away";
   const winner = winnerSide === "draw" ? "平局" : winnerSide === "home" ? `${match.home} 胜` : `${match.away} 胜`;
-  const rawHomeGoals = clamp(Math.floor(homeSignal / 35) + (methodSeed % 2), 0, 5);
-  const rawAwayGoals = clamp(Math.floor(awaySignal / 35) + ((methodSeed >> 3) % 2), 0, 5);
+  const rawHomeGoals = estimateGoals(homeSignal, awaySignal, drawSignal, "home", methodSeed);
+  const rawAwayGoals = estimateGoals(awaySignal, homeSignal, drawSignal, "away", methodSeed);
   const score = normalizeScore(rawHomeGoals, rawAwayGoals, winnerSide);
   const confidence = clamp(54 + Math.round(Math.abs(homeSignal - awaySignal) / 2) + (winnerSide === "draw" ? Math.round(drawSignal / 7) : 0), 50, 92);
   const numericSteps = [
     { label: "原始取数", value: calculationKey, note: `由比赛 id、开球时间、场馆与${getMethodName(methodId)}共同生成，保证同一场同一法结果稳定。` },
-    { label: "主队势能", value: `${homeSignal}`, note: `${match.home} 的队名、日期和本法象意加权。` },
-    { label: "客队势能", value: `${awaySignal}`, note: `${match.away} 的队名、时间和本法象意加权。` },
-    { label: "平局牵引", value: `${drawSignal}`, note: `用小组/阶段与场馆气口判断是否容易僵持。` },
-    { label: "比分落点", value: `${score.home}-${score.away}`, note: `把三项势能换算成进球区间，再按胜平负校正。` }
+    { label: "实力校准", value: `${match.home}${baseline.homeRating} / ${match.away}${baseline.awayRating}`, note: "先用球队强弱、是否东道主/近似主场、阶段属性建立现实底盘，避免强弱队被随机等权处理。" },
+    { label: "基线三势", value: `主${Math.round(baseline.home)} · 客${Math.round(baseline.away)} · 和${Math.round(baseline.draw)}`, note: baseline.note },
+    { label: "盘面修正", value: `主${signed(cast.tilt.home)} · 客${signed(cast.tilt.away)} · 和${signed(cast.tilt.draw)}`, note: "每一种玄学方法独立给出修正量；最终胜负由现实底盘与盘面修正共同决定。" },
+    { label: "主队势能", value: `${homeSignal}`, note: `${match.home} 的现实强弱、开球时空和本法象意合参。` },
+    { label: "客队势能", value: `${awaySignal}`, note: `${match.away} 的现实强弱、开球时空和本法象意合参。` },
+    { label: "平局牵引", value: `${drawSignal}`, note: `用强弱差、阶段属性、场馆气口和本法阻滞象判断是否容易僵持。` },
+    { label: "比分落点", value: `${score.home}-${score.away}`, note: `由进攻势能、平局牵引和胜平负落点换算成比分。` }
   ];
 
   if (methodId === "tarot") {
@@ -447,6 +471,15 @@ function buildReading(methodId: MethodId, match: WorldCupMatch, seed: number): I
   throw new Error(`Unsupported prediction method: ${methodId}`);
 }
 
+type MatchBaseline = {
+  home: number;
+  away: number;
+  draw: number;
+  homeRating: number;
+  awayRating: number;
+  note: string;
+};
+
 type MethodCast = {
   titleToken: string;
   tokens: string[];
@@ -489,6 +522,108 @@ type LunisolarContext = {
   term: string;
 };
 
+function buildMatchBaseline(match: WorldCupMatch): MatchBaseline {
+  const homeRating = getTeamPower(match.home);
+  const awayRating = getTeamPower(match.away);
+  const hostBonus = getHostBonus(match);
+  const ratingDelta = homeRating - awayRating + hostBonus;
+  const phaseDrawLift = match.phase === "小组赛" ? 4 : -5;
+  const closeMatchLift = Math.max(0, 8 - Math.abs(ratingDelta) * 0.25);
+  const home = clamp(52 + ratingDelta * 0.58, 20, 92);
+  const away = clamp(52 - ratingDelta * 0.58, 20, 92);
+  const draw = clamp(30 + phaseDrawLift + closeMatchLift - Math.abs(ratingDelta) * 0.16, 10, 58);
+
+  return {
+    home,
+    away,
+    draw,
+    homeRating,
+    awayRating,
+    note:
+      hostBonus > 0
+        ? `现实底盘：${match.home}获得近似主场修正，强弱差 ${Math.round(ratingDelta)}。`
+        : `现实底盘：按球队强弱差 ${Math.round(ratingDelta)}、${match.phase}和中立场地校准。`
+  };
+}
+
+function getTeamPower(team: string) {
+  return teamPowerRatings[team] ?? 70;
+}
+
+function getHostBonus(match: WorldCupMatch) {
+  if ((match.home === "美国" || match.away === "美国") && match.country === "美国") {
+    return match.home === "美国" ? 5 : -5;
+  }
+  if ((match.home === "加拿大" || match.away === "加拿大") && match.country === "加拿大") {
+    return match.home === "加拿大" ? 5 : -5;
+  }
+  if ((match.home === "墨西哥" || match.away === "墨西哥") && match.country === "墨西哥") {
+    return match.home === "墨西哥" ? 5 : -5;
+  }
+  return 0;
+}
+
+function estimateGoals(ownSignal: number, opponentSignal: number, drawSignal: number, side: "home" | "away", seed: number) {
+  const attackShare = ownSignal / Math.max(1, ownSignal + opponentSignal);
+  const matchTempo = clamp((ownSignal + opponentSignal - drawSignal * 0.55) / 48, 1.35, 4.4);
+  const fortuneNibble = side === "home" ? seed % 2 : (seed >> 3) % 2;
+  return clamp(Math.round(attackShare * matchTempo + fortuneNibble - (drawSignal > 50 ? 0.25 : 0)), 0, 5);
+}
+
+function scoreTarotCard(card: (typeof tarotDeck)[number] & { reversed: boolean }) {
+  const arcanaWeight = card.arcana === "大阿尔卡那" ? 4 : 1;
+  const suitWeight = card.element === "火" ? 4 : card.element === "土" ? 2 : card.element === "水" ? -1 : 3;
+  const raw = arcanaWeight + suitWeight + (card.power % 10) - 4;
+  return card.reversed ? -Math.round(raw * 0.8) : raw;
+}
+
+function scoreQimenDoor(door: string) {
+  const scores: Record<string, number> = {
+    开门: 9,
+    生门: 8,
+    景门: 6,
+    休门: 3,
+    杜门: -2,
+    伤门: -3,
+    惊门: -4,
+    死门: -7
+  };
+  return scores[door] ?? 0;
+}
+
+function scoreQimenStar(star: string) {
+  const scores: Record<string, number> = {
+    天心: 8,
+    天任: 6,
+    天辅: 5,
+    天英: 4,
+    天冲: 2,
+    天禽: 1,
+    天蓬: -1,
+    天柱: -4,
+    天芮: -6
+  };
+  return scores[star] ?? 0;
+}
+
+function scoreQimenGod(god: string) {
+  const scores: Record<string, number> = {
+    九天: 6,
+    值符: 5,
+    六合: 4,
+    太阴: 2,
+    九地: 1,
+    腾蛇: -3,
+    玄武: -4,
+    白虎: -5
+  };
+  return scores[god] ?? 0;
+}
+
+function signed(value: number) {
+  return value > 0 ? `+${value}` : `${value}`;
+}
+
 function castMethod(methodId: MethodId, match: WorldCupMatch, seed: number, astroContext: AstroContext, lunisolarContext: LunisolarContext): MethodCast {
   const dateParts = getDateParts(match);
   const timeIndex = getTimeBranchIndex(match.localTime);
@@ -500,14 +635,14 @@ function castMethod(methodId: MethodId, match: WorldCupMatch, seed: number, astr
       reversed: indexFromSeed(seed, index * 5, 2) === 1
     }));
     const spread = drawn.map((card) => `${card.name}${card.reversed ? "逆位" : "正位"}`);
-    const cardValues = drawn.map((card) => card.power * (card.reversed ? -1 : 1));
+    const cardValues = drawn.map(scoreTarotCard);
     return {
       titleToken: spread[2],
       tokens: spread,
       tilt: {
-        home: drawn[0].attack + cardValues[0] % 7,
-        away: drawn[1].defense + cardValues[1] % 7,
-        draw: drawn[2].draw + (drawn[2].reversed ? 3 : 0)
+        home: cardValues[0] + drawn[0].attack - drawn[0].defense,
+        away: cardValues[1] + drawn[1].defense - drawn[1].attack,
+        draw: drawn[2].draw + (drawn[2].reversed ? 7 : -2) + (Math.abs(cardValues[0] - cardValues[1]) <= 3 ? 5 : 0)
       },
       steps: [
         { label: "78张牌库", value: "22张大阿尔卡那 + 56张小阿尔卡那", note: "使用完整塔罗结构，大小牌都会进入洗牌池。" },
@@ -529,9 +664,9 @@ function castMethod(methodId: MethodId, match: WorldCupMatch, seed: number, astr
       titleToken: states[2],
       tokens: [states[2], `${states[0]} / ${states[1]}`],
       tilt: {
-        home: liurenJudgements[states[0]].home - 3,
-        away: liurenJudgements[states[1]].away - 3,
-        draw: finalJudgement.draw - 2
+        home: liurenJudgements[states[0]].home + liurenJudgements[states[2]].home - 9,
+        away: liurenJudgements[states[1]].away + liurenJudgements[states[2]].away - 9,
+        draw: finalJudgement.draw + (states.includes("留连") ? 5 : 0) + (states.includes("空亡") ? 4 : 0) - 4
       },
       steps: [
         { label: "农历日期", value: lunisolarContext.lunarLabel, note: "由 solarlunar 将公历比赛日换算为农历日期。" },
@@ -553,13 +688,16 @@ function castMethod(methodId: MethodId, match: WorldCupMatch, seed: number, astr
     const planetPower = astroPlanets.indexOf(planet) + 1;
     const signPower = astroSigns.indexOf(sign) + 1;
     const housePower = astroHouses.indexOf(house) + 1;
+    const aspectPressure = astroContext.majorAspect.includes("冲相") || astroContext.majorAspect.includes("刑相") ? 5 : 0;
+    const fireAirBoost = ["白羊座", "狮子座", "射手座", "双子座", "天秤座", "水瓶座"].includes(sign) ? 4 : 0;
+    const earthWaterDrag = ["金牛座", "巨蟹座", "处女座", "摩羯座", "双鱼座"].includes(sign) ? 4 : 0;
     return {
       titleToken: `${planet}入${sign}`,
       tokens: [planet, sign, house],
       tilt: {
-        home: (planetPower % 10) - 2,
-        away: (signPower % 10) - 3,
-        draw: (housePower % 8) - 1
+        home: planetPower + fireAirBoost - 7 + (housePower === 1 || housePower === 10 ? 4 : 0),
+        away: signPower - 7 + (housePower === 7 || housePower === 8 ? 5 : 0),
+        draw: earthWaterDrag + aspectPressure + (housePower === 4 || housePower === 12 ? 4 : 0) - 3
       },
       steps: [
         { label: "赛时星历", value: astroContext.timeBasis, note: "由 Astronomy Engine 按比赛当地时间折算 UTC 后计算地心黄道坐标。" },
@@ -594,9 +732,9 @@ function castMethod(methodId: MethodId, match: WorldCupMatch, seed: number, astr
       titleToken: primaryHexagram.name,
       tokens: [trigrams[upperIndex], trigrams[lowerIndex], `${movingLine}`, changed],
       tilt: {
-        home: upperIndex + movingLine + (relation.includes("用生体") ? 4 : relation.includes("体克用") ? 2 : -2),
-        away: lowerIndex + Math.ceil(movingLine / 2) + (relation.includes("用克体") ? 4 : relation.includes("体生用") ? 2 : -1),
-        draw: movingLine % 2 === 0 ? 6 : -1
+        home: upperIndex + movingLine + (relation.includes("用生体") ? 9 : relation.includes("体克用") ? 7 : relation.includes("体用同气") ? 2 : -4),
+        away: lowerIndex + Math.ceil(movingLine / 2) + (relation.includes("用克体") ? 9 : relation.includes("体生用") ? 5 : relation.includes("体用同气") ? 2 : -3),
+        draw: movingLine % 2 === 0 ? 8 : -2 + (relation.includes("同气") ? 7 : 0)
       },
       steps: [
         { label: "农历日期", value: lunisolarContext.lunarLabel, note: "梅花起卦改用农历年月日作为时空底数。" },
@@ -621,13 +759,16 @@ function castMethod(methodId: MethodId, match: WorldCupMatch, seed: number, astr
     const star = normalizeQimenName(chart.valueStar);
     const palace = chart.valueStarPalace;
     const god = chart.godLayer.find((item) => item) ?? "值符";
+    const doorScore = scoreQimenDoor(door);
+    const starScore = scoreQimenStar(star);
+    const godScore = scoreQimenGod(god);
     return {
       titleToken: door,
       tokens: [door, star, palace, god, chart.yinYang, `${chart.ju}`],
       tilt: {
-        home: chart.ju + qimenDoors.indexOf(door) - 2,
-        away: qimenStars.indexOf(star) - 2,
-        draw: palace.includes("中") || palace.includes("坤") || god === "六合" ? 5 : -1
+        home: chart.ju + doorScore + (chart.yinYang === "陽" ? 3 : -1) + (palace.includes("乾") || palace.includes("离") ? 3 : 0),
+        away: starScore + godScore + (chart.yinYang === "陰" ? 3 : -1) + (palace.includes("坎") || palace.includes("兑") ? 3 : 0),
+        draw: palace.includes("中") || palace.includes("坤") || god === "六合" ? 10 : door === "杜门" || door === "死门" ? 7 : -2
       },
       steps: [
         { label: "农历日期", value: lunisolarContext.lunarLabel, note: "奇门局数使用节气/干支语境，当前以历法库农历信息作底座。" },
@@ -653,9 +794,9 @@ function castMethod(methodId: MethodId, match: WorldCupMatch, seed: number, astr
     titleToken: lot,
     tokens: [`第${lotNumber}签`, poem, image],
     tilt: {
-      home: (lotNumber % 12) - 3,
-      away: ((lotNumber >> 1) % 12) - 3,
-      draw: lot.includes("守") || poem.includes("守") || image.includes("坤") ? 7 : (lotNumber % 6) - 2
+      home: (lotNumber % 12) + (poem.includes("喜") || poem.includes("进") ? 5 : 0) - 6,
+      away: ((lotNumber >> 1) % 12) + (poem.includes("反") || poem.includes("后") ? 5 : 0) - 6,
+      draw: lot.includes("守") || poem.includes("守") || image.includes("坤") ? 10 : (lotNumber % 6) - 2
     },
     steps: [
       { label: "签号", value: `第${lotNumber}签`, note: "以比赛、球队、开球时间合成签号，固定同场同法的抽签结果。" },

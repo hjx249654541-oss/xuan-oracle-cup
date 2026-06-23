@@ -58,8 +58,11 @@ describe("buildPrediction", () => {
 
     for (const reading of prediction.readings) {
       expect(reading.processSteps.map((step) => step.label)).toEqual(
-        expect.arrayContaining(["原始取数", "主队势能", "客队势能", "平局牵引", "比分落点"])
+        expect.arrayContaining(["原始取数", "实力校准", "基线三势", "盘面修正", "主队势能", "客队势能", "平局牵引", "比分落点"])
       );
+      expect(reading.processSteps.find((step) => step.label === "实力校准")?.value).toContain(match.home);
+      expect(reading.processSteps.find((step) => step.label === "基线三势")?.value).toMatch(/^主\d+ · 客\d+ · 和\d+$/);
+      expect(reading.processSteps.find((step) => step.label === "盘面修正")?.value).toMatch(/^主[+-]?\d+ · 客[+-]?\d+ · 和[+-]?\d+$/);
       expect(reading.processSteps.find((step) => step.label === "主队势能")?.value).toMatch(/^\d+$/);
       expect(reading.processSteps.find((step) => step.label === "客队势能")?.value).toMatch(/^\d+$/);
       expect(reading.processSteps.find((step) => step.label === "比分落点")?.value).toMatch(/^\d+-\d+$/);
