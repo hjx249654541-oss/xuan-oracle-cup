@@ -1,4 +1,5 @@
 import * as Astronomy from "astronomy-engine";
+import { chartToObject, generateChartByDatetime } from "qimen-dunjia";
 import solarLunar from "solarlunar";
 import type { WorldCupMatch } from "../data/schedule";
 
@@ -140,6 +141,41 @@ const trigramLines: Record<string, number[]> = {
   艮: [0, 0, 1],
   坤: [0, 0, 0]
 };
+const trigramElements: Record<string, string> = {
+  乾: "金",
+  兑: "金",
+  离: "火",
+  震: "木",
+  巽: "木",
+  坎: "水",
+  艮: "土",
+  坤: "土"
+};
+const elementGenerates: Record<string, string> = {
+  木: "火",
+  火: "土",
+  土: "金",
+  金: "水",
+  水: "木"
+};
+const elementControls: Record<string, string> = {
+  木: "土",
+  土: "水",
+  水: "火",
+  火: "金",
+  金: "木"
+};
+const kingWenHexagrams = [
+  "乾为天", "坤为地", "水雷屯", "山水蒙", "水天需", "天水讼", "地水师", "水地比",
+  "风天小畜", "天泽履", "地天泰", "天地否", "天火同人", "火天大有", "地山谦", "雷地豫",
+  "泽雷随", "山风蛊", "地泽临", "风地观", "火雷噬嗑", "山火贲", "山地剥", "地雷复",
+  "天雷无妄", "山天大畜", "山雷颐", "泽风大过", "坎为水", "离为火", "泽山咸", "雷风恒",
+  "天山遁", "雷天大壮", "火地晋", "地火明夷", "风火家人", "火泽睽", "水山蹇", "雷水解",
+  "山泽损", "风雷益", "泽天夬", "天风姤", "泽地萃", "地风升", "泽水困", "水风井",
+  "泽火革", "火风鼎", "震为雷", "艮为山", "风山渐", "雷泽归妹", "雷火丰", "火山旅",
+  "巽为风", "兑为泽", "风水涣", "水泽节", "风泽中孚", "雷山小过", "水火既济", "火水未济"
+];
+const hexagramImages = ["进取", "承载", "初难", "启蒙", "等待", "争执", "组织", "亲比"];
 const qimenStars = ["天蓬", "天任", "天冲", "天辅", "天英", "天芮", "天柱", "天心", "天禽"];
 const qimenPalaces = ["坎一宫", "坤二宫", "震三宫", "巽四宫", "中五宫", "乾六宫", "兑七宫", "艮八宫", "离九宫"];
 const qimenGods = ["值符", "腾蛇", "太阴", "六合", "白虎", "玄武", "九地", "九天"];
@@ -324,6 +360,7 @@ function buildReading(methodId: MethodId, match: WorldCupMatch, seed: number): I
   if (methodId === "meihua") {
     const hexagram = cast.titleToken;
     const movingLine = Number(cast.tokens[2]);
+    const [upperTrigram, lowerTrigram] = cast.tokens;
     return {
       methodId,
       title: `梅花易数 · ${hexagram}`,
@@ -338,8 +375,8 @@ function buildReading(methodId: MethodId, match: WorldCupMatch, seed: number): I
       processSteps: [
         ...numericSteps,
         ...cast.steps,
-        { label: "上卦", value: hexagram.slice(0, 1), note: "取比赛日期与主队名定外势" },
-        { label: "下卦", value: hexagram.slice(1, 2), note: "取开球时间与客队名定内势" },
+        { label: "上卦", value: upperTrigram, note: "取比赛日期与主队名定外势" },
+        { label: "下卦", value: lowerTrigram, note: "取开球时间与客队名定内势" },
         { label: "动爻", value: `${movingLine}爻动`, note: "动爻指向比赛最可能改变走势的阶段" }
       ],
       homeSignal,
@@ -546,18 +583,30 @@ function castMethod(methodId: MethodId, match: WorldCupMatch, seed: number, astr
     const changed = `${trigrams[(upperIndex + movingLine) % trigrams.length]}${trigrams[(lowerIndex + movingLine) % trigrams.length]}`;
     const mutual = buildMutualHexagram(trigrams[upperIndex], trigrams[lowerIndex]);
     const bodyUse = movingLine <= 3 ? "上卦为体，下卦为用" : "下卦为体，上卦为用";
+    const primaryHexagram = resolveHexagram(hexagram);
+    const changedHexagram = resolveHexagram(changed);
+    const bodyTrigram = movingLine <= 3 ? trigrams[upperIndex] : trigrams[lowerIndex];
+    const useTrigram = movingLine <= 3 ? trigrams[lowerIndex] : trigrams[upperIndex];
+    const bodyElement = trigramElements[bodyTrigram];
+    const useElement = trigramElements[useTrigram];
+    const relation = getElementRelation(bodyElement, useElement);
     return {
-      titleToken: hexagram,
+      titleToken: primaryHexagram.name,
       tokens: [trigrams[upperIndex], trigrams[lowerIndex], `${movingLine}`, changed],
       tilt: {
-        home: upperIndex + movingLine - 2,
-        away: lowerIndex + Math.ceil(movingLine / 2) - 2,
+        home: upperIndex + movingLine + (relation.includes("用生体") ? 4 : relation.includes("体克用") ? 2 : -2),
+        away: lowerIndex + Math.ceil(movingLine / 2) + (relation.includes("用克体") ? 4 : relation.includes("体生用") ? 2 : -1),
         draw: movingLine % 2 === 0 ? 6 : -1
       },
       steps: [
         { label: "农历日期", value: lunisolarContext.lunarLabel, note: "梅花起卦改用农历年月日作为时空底数。" },
         { label: "干支四柱", value: lunisolarContext.pillars, note: "用于标记起卦时空，不再只取公历日期。" },
         { label: "年月日时", value: `${lunisolarContext.lunarYear}+${lunisolarContext.lunarMonth}+${lunisolarContext.lunarDay}+${dateParts.hour}`, note: "用农历年月日时起数，上卦取年月日，下卦加入时数。" },
+        { label: "周易64卦", value: "文王卦序 1-64", note: "以完整 64 卦目录定位本卦、互卦与变卦。" },
+        { label: "卦序卦名", value: `第${primaryHexagram.number}卦 ${primaryHexagram.name}`, note: `变卦为第${changedHexagram.number}卦 ${changedHexagram.name}。` },
+        { label: "卦辞象意", value: primaryHexagram.image, note: "这里使用自写短象意，不搬运长篇经典译文。" },
+        { label: "体用五行", value: `体:${bodyTrigram}${bodyElement} / 用:${useTrigram}${useElement}`, note: bodyUse },
+        { label: "生克关系", value: relation, note: "体用生克用于修正主客势能。" },
         { label: "本互变卦", value: `${hexagram} -> ${mutual} -> ${changed}`, note: `第 ${movingLine} 爻动，互卦看过程，变卦看结果。` },
         { label: "体用定位", value: bodyUse, note: "体为自身根基，用为对手与外部变化。" },
         { label: "互卦", value: mutual, note: "取二三四爻、三四五爻组成互卦，观察比赛中段走势。" },
@@ -567,31 +616,31 @@ function castMethod(methodId: MethodId, match: WorldCupMatch, seed: number, astr
   }
 
   if (methodId === "qimen") {
-    const dayOfYear = getDayOfYear(match.date);
-    const ju = ((dayOfYear + dateParts.hour) % 9) + 1;
-    const dun = dayOfYear >= 172 && dayOfYear < 355 ? "阴遁" : "阳遁";
-    const direction = dun === "阳遁" ? 1 : -1;
-    const door = qimenDoors[positiveModulo(ju + direction * timeIndex, qimenDoors.length)];
-    const star = qimenStars[(ju + match.home.length) % qimenStars.length];
-    const palace = qimenPalaces[(ju + match.away.length) % qimenPalaces.length];
-    const god = qimenGods[(ju + timeIndex + match.city.length) % qimenGods.length];
-    const chiefDoor = qimenDoors[qimenStars.indexOf(star) % qimenDoors.length];
+    const chart = getQimenChart(match);
+    const door = normalizeQimenName(chart.valueDoor);
+    const star = normalizeQimenName(chart.valueStar);
+    const palace = chart.valueStarPalace;
+    const god = chart.godLayer.find((item) => item) ?? "值符";
     return {
       titleToken: door,
-      tokens: [door, star, palace, god, dun, chiefDoor],
+      tokens: [door, star, palace, god, chart.yinYang, `${chart.ju}`],
       tilt: {
-        home: ju + qimenDoors.indexOf(door) - 2,
+        home: chart.ju + qimenDoors.indexOf(door) - 2,
         away: qimenStars.indexOf(star) - 2,
         draw: palace.includes("中") || palace.includes("坤") || god === "六合" ? 5 : -1
       },
       steps: [
         { label: "农历日期", value: lunisolarContext.lunarLabel, note: "奇门局数使用节气/干支语境，当前以历法库农历信息作底座。" },
         { label: "干支四柱", value: lunisolarContext.pillars, note: "年、月、日干支来自历法库，时柱由日干和开球时辰推得。" },
-        { label: "阴阳遁", value: `${dun}${ju}局`, note: "以年内日序近似节气分阴阳遁，再取局数。" },
-        { label: "局数排宫", value: `第${ju}局 · ${getTimeBranchName(match.localTime)}`, note: "以年内日序和开球时辰排简化九宫局。" },
+        { label: "拆补法定局", value: `${chart.jieqi}${chart.sanyuan} · ${chart.yinYang}遁${chart.ju}局`, note: "由 qimen-dunjia 库按日期时间自动判节气、三元、阴阳遁与局数。" },
+        { label: "旬首符首", value: `${chart.xunHead} / ${chart.fuHead}`, note: "旬首定位甲遁，符首决定值符值使起点。" },
+        { label: "阴阳遁", value: `${chart.yinYang}遁${chart.ju}局`, note: "使用外部奇门排盘库的拆补法定局结果。" },
+        { label: "局数排宫", value: `第${chart.ju}局 · ${chart.hourPillar}`, note: "以四柱和局数生成九宫盘。" },
         { label: "门星宫", value: `${door} / ${star} / ${palace}`, note: "门看进攻打开方式，星看执行者，宫看优势落点。" },
-        { label: "值符值使", value: `${star}为值符，${chiefDoor}为值使`, note: "值符定主线，值使定执行路径。" },
-        { label: "八神", value: god, note: "八神用于修正临场变数、犯错和突发性。" }
+        { label: "值符值使", value: `${star}为值符，${door}为值使`, note: "值符定主线，值使定执行路径。" },
+        { label: "天盘地盘", value: `天盘:${chart.heavenPlate.join(" ")} / 地盘:${chart.earthPlate.join(" ")}`, note: "天盘随时辰飞布，地盘为三奇六仪基础层。" },
+        { label: "三奇六仪", value: `地盘:${chart.earthPlate.join(" ")}；天盘:${chart.heavenPlate.join(" ")}`, note: "乙丙丁为三奇，戊己庚辛壬癸为六仪。" },
+        { label: "八神", value: chart.godLayer.filter(Boolean).join(" / "), note: "八神层用于修正临场变数、犯错和突发性。" }
       ]
     };
   }
@@ -676,6 +725,104 @@ function buildMutualHexagram(upper: string, lower: string) {
 
 function trigramFromLines(lines: number[]) {
   return Object.entries(trigramLines).find(([, value]) => value.join("") === lines.join(""))?.[0] ?? "乾";
+}
+
+function resolveHexagram(pair: string) {
+  const lines = pair
+    .split("")
+    .flatMap((trigram) => trigramLines[trigram] ?? [])
+    .join("");
+  const binaryIndex = parseInt(lines || "0", 2);
+  const number = (binaryIndex % 64) + 1;
+  const name = kingWenHexagrams[number - 1];
+  return {
+    number,
+    name,
+    image: `${hexagramImages[number % hexagramImages.length]}之象，${name.includes("既济") ? "事有成局" : name.includes("未济") ? "未定待成" : "以动静消长断势"}`
+  };
+}
+
+function getElementRelation(bodyElement: string, useElement: string) {
+  if (bodyElement === useElement) {
+    return "体用同气，主客势均，比赛更看临场细节";
+  }
+  if (elementGenerates[useElement] === bodyElement) {
+    return "用生体，外势助我，主队承势";
+  }
+  if (elementGenerates[bodyElement] === useElement) {
+    return "体生用，我去生彼，主队耗力";
+  }
+  if (elementControls[bodyElement] === useElement) {
+    return "体克用，我能制彼，主队有压制力";
+  }
+  if (elementControls[useElement] === bodyElement) {
+    return "用克体，客势压我，防反与失误风险增";
+  }
+  return "体用关系平缓";
+}
+
+type QimenChartInfo = {
+  jieqi: string;
+  sanyuan: string;
+  yinYang: string;
+  ju: number;
+  xunHead: string;
+  fuHead: string;
+  valueDoor: string;
+  valueStar: string;
+  valueStarPalace: string;
+  hourPillar: string;
+  earthPlate: string[];
+  heavenPlate: string[];
+  godLayer: string[];
+};
+
+function getQimenChart(match: WorldCupMatch): QimenChartInfo {
+  const { year, month, day, hour } = getDateParts(match);
+  const chart = generateChartByDatetime(`${year}${pad2(month)}${pad2(day)}${pad2(hour)}`);
+  const obj = chartToObject(chart) as Record<string, unknown>;
+  const stars = arrayValue(obj["九星"]);
+  const valueStar = stringValue(obj["值符"], "天禽");
+  const valueStarIndex = Math.max(0, stars.indexOf(valueStar));
+  return {
+    jieqi: stringValue(obj["節氣"], lunisolarFallbackTerm(match)),
+    sanyuan: stringValue(obj["三元"], "中元"),
+    yinYang: stringValue(obj["陰陽"], "陽"),
+    ju: numberValue(obj["局數"], 1),
+    xunHead: stringValue(obj["旬首"], "甲子"),
+    fuHead: stringValue(obj["符首"], "戊"),
+    valueDoor: stringValue(obj["值使"], "开门"),
+    valueStar,
+    valueStarPalace: qimenPalaces[valueStarIndex] ?? "中五宫",
+    hourPillar: stringValue(obj["時柱"], getTimeBranchName(match.localTime)),
+    earthPlate: arrayValue(obj["地盤"]),
+    heavenPlate: arrayValue(obj["天盤"]),
+    godLayer: arrayValue(obj["八神"])
+  };
+}
+
+function normalizeQimenName(value: string) {
+  return value.replace(/門/g, "门");
+}
+
+function arrayValue(value: unknown) {
+  return Array.isArray(value) ? value.map((item) => String(item || "")) : [];
+}
+
+function stringValue(value: unknown, fallback: string) {
+  return typeof value === "string" && value.length > 0 ? value : fallback;
+}
+
+function numberValue(value: unknown, fallback: number) {
+  return typeof value === "number" ? value : Number(value) || fallback;
+}
+
+function pad2(value: number) {
+  return value.toString().padStart(2, "0");
+}
+
+function lunisolarFallbackTerm(match: WorldCupMatch) {
+  return getLunisolarContext(match).term || "节气未标注";
 }
 
 function getAstroContext(match: WorldCupMatch): AstroContext {

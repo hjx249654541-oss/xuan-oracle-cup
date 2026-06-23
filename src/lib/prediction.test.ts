@@ -135,4 +135,21 @@ describe("buildPrediction", () => {
       expect(reading.processSteps.find((step) => step.label === "干支四柱")?.value).toMatch(/年.*月.*日.*时/);
     }
   });
+
+  it("uses complete I Ching and Qimen chart structures for the professional layer", () => {
+    const match = worldCupMatches[0];
+    const meihua = buildPrediction(match, ["meihua"]).readings[0];
+    const qimen = buildPrediction(match, ["qimen"]).readings[0];
+
+    expect(meihua.processSteps.map((step) => step.label)).toEqual(
+      expect.arrayContaining(["周易64卦", "卦序卦名", "卦辞象意", "体用五行", "生克关系"])
+    );
+    expect(meihua.processSteps.find((step) => step.label === "卦序卦名")?.value).toMatch(/^第\d+卦/);
+
+    expect(qimen.processSteps.map((step) => step.label)).toEqual(
+      expect.arrayContaining(["拆补法定局", "旬首符首", "天盘地盘", "三奇六仪"])
+    );
+    expect(qimen.processSteps.find((step) => step.label === "拆补法定局")?.value).toMatch(/遁\d局/);
+    expect(qimen.processSteps.find((step) => step.label === "三奇六仪")?.value).toContain("地盘");
+  });
 });
