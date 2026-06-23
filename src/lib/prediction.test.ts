@@ -95,4 +95,24 @@ describe("buildPrediction", () => {
       }
     }
   });
+
+  it("shows professional simulation details for each divination system", () => {
+    const match = worldCupMatches[0];
+    const expectedLabels: Record<MethodId, string[]> = {
+      tarot: ["78张牌库", "正逆位", "元素权重"],
+      liuren: ["报时起课", "吉凶分层", "六神判词"],
+      astro: ["庙旺弱陷", "三骰合参", "宫位主题"],
+      meihua: ["体用定位", "互卦", "变卦"],
+      qimen: ["阴阳遁", "值符值使", "八神"],
+      oracle: ["签诗卦象", "签意权重", "解签方向"]
+    };
+
+    for (const methodId of predictionMethods.map((method) => method.id)) {
+      const reading = buildPrediction(match, [methodId]).readings[0];
+      const labels = reading.processSteps.map((step) => step.label);
+      for (const label of expectedLabels[methodId]) {
+        expect(labels).toContain(label);
+      }
+    }
+  });
 });

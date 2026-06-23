@@ -76,18 +76,73 @@ export const predictionMethods: PredictionMethod[] = [
   }
 ];
 
-const tarotCards = ["愚者", "魔术师", "女祭司", "皇后", "皇帝", "教皇", "恋人", "战车", "力量", "隐者", "命运之轮", "正义", "倒吊人", "死神", "节制", "恶魔", "高塔", "星星", "月亮", "太阳", "审判", "世界"];
+const majorArcana = ["愚者", "魔术师", "女祭司", "皇后", "皇帝", "教皇", "恋人", "战车", "力量", "隐者", "命运之轮", "正义", "倒吊人", "死神", "节制", "恶魔", "高塔", "星星", "月亮", "太阳", "审判", "世界"];
+const minorRanks = ["Ace", "2", "3", "4", "5", "6", "7", "8", "9", "10", "侍从", "骑士", "王后", "国王"];
+const minorSuits = [
+  { name: "权杖", element: "火", attack: 4, defense: 1, draw: 0 },
+  { name: "圣杯", element: "水", attack: 1, defense: 2, draw: 3 },
+  { name: "宝剑", element: "风", attack: 3, defense: 0, draw: 1 },
+  { name: "星币", element: "土", attack: 1, defense: 4, draw: 2 }
+];
+const tarotDeck = [
+  ...majorArcana.map((name, index) => ({ name, arcana: "大阿尔卡那", element: "灵", power: index + 1, attack: index % 3, defense: index % 4, draw: index % 5 })),
+  ...minorSuits.flatMap((suit) =>
+    minorRanks.map((rank, index) => ({
+      name: `${suit.name}${rank}`,
+      arcana: "小阿尔卡那",
+      element: suit.element,
+      power: index + 1,
+      attack: suit.attack + (index % 3),
+      defense: suit.defense + (index % 3),
+      draw: suit.draw + (index % 2)
+    }))
+  )
+];
+const tarotCards = tarotDeck.map((card) => card.name);
 const tarotPositions = ["球队气势", "比赛转折", "最终落点"];
 const liurenStates = ["大安", "留连", "速喜", "赤口", "小吉", "空亡"];
+const liurenJudgements: Record<string, { level: string; text: string; home: number; away: number; draw: number }> = {
+  大安: { level: "吉", text: "稳守有根，利主不利躁进", home: 8, away: 3, draw: 4 },
+  留连: { level: "滞", text: "事多缠绕，节奏拖慢", home: 2, away: 2, draw: 8 },
+  速喜: { level: "吉", text: "喜信速至，利先手进球", home: 9, away: 5, draw: 1 },
+  赤口: { level: "凶", text: "口舌争执，犯规冲突增多", home: 2, away: 6, draw: 2 },
+  小吉: { level: "小吉", text: "小利渐进，利后程调整", home: 6, away: 6, draw: 3 },
+  空亡: { level: "空", text: "有势无形，临门易空", home: 1, away: 1, draw: 7 }
+};
 const astroPlanets = ["太阳", "月亮", "水星", "金星", "火星", "木星", "土星", "天王星", "海王星", "冥王星"];
 const astroSigns = ["白羊", "金牛", "双子", "巨蟹", "狮子", "处女", "天秤", "天蝎", "射手", "摩羯", "水瓶", "双鱼"];
 const astroHouses = ["一宫", "二宫", "三宫", "四宫", "五宫", "六宫", "七宫", "八宫", "九宫", "十宫", "十一宫", "十二宫"];
-const qimenDoors = ["开门临乾", "休门入坎", "生门落艮", "景门照离", "伤门震动", "杜门守局"];
+const planetDignities: Record<string, string> = {
+  太阳: "旺于狮子，主核心与名望",
+  月亮: "旺于巨蟹，主情绪与节奏",
+  水星: "旺于双子/处女，主传导与判断",
+  金星: "旺于金牛/天秤，主配合与稳定",
+  火星: "旺于白羊，主冲击与对抗",
+  木星: "旺于射手，主扩张与机会",
+  土星: "旺于摩羯，主防线与纪律",
+  天王星: "主突变与冷门",
+  海王星: "主迷雾与误判",
+  冥王星: "主压迫与逆转"
+};
+const houseThemes = ["自我状态", "资源消耗", "传导沟通", "主场根基", "创造射门", "执行细节", "对手关系", "危险区域", "远程推进", "名望结果", "团队协作", "隐患失误"];
+const qimenDoors = ["休门", "生门", "伤门", "杜门", "景门", "死门", "惊门", "开门"];
 const oracleLots = ["上签", "中上签", "中签", "小吉签", "守成签", "变局签"];
 const trigrams = ["乾", "兑", "离", "震", "巽", "坎", "艮", "坤"];
+const trigramLines: Record<string, number[]> = {
+  乾: [1, 1, 1],
+  兑: [1, 1, 0],
+  离: [1, 0, 1],
+  震: [1, 0, 0],
+  巽: [0, 1, 1],
+  坎: [0, 1, 0],
+  艮: [0, 0, 1],
+  坤: [0, 0, 0]
+};
 const qimenStars = ["天蓬", "天任", "天冲", "天辅", "天英", "天芮", "天柱", "天心", "天禽"];
 const qimenPalaces = ["坎一宫", "坤二宫", "震三宫", "巽四宫", "中五宫", "乾六宫", "兑七宫", "艮八宫", "离九宫"];
+const qimenGods = ["值符", "腾蛇", "太阴", "六合", "白虎", "玄武", "九地", "九天"];
 const oraclePoems = ["先缓后急，临门见喜", "守中得势，一球定局", "动中有阻，慎防反转", "云开见月，后手得分", "强攻不宜，借势而成", "有惊无险，守势成局"];
+const oracleImages = ["乾金进取", "坤土守成", "震雷突发", "巽风渗透", "坎水险阻", "离火明朗", "艮山止步", "兑泽喜悦"];
 
 export function buildPrediction(match: WorldCupMatch, enabledMethods: MethodId[]): PredictionSummary {
   const selected = (enabledMethods.length > 0 ? enabledMethods : predictionMethods.map((method) => method.id)).slice(0, 3);
@@ -347,20 +402,27 @@ function castMethod(methodId: MethodId, match: WorldCupMatch, seed: number): Met
   const timeIndex = getTimeBranchIndex(match.localTime);
 
   if (methodId === "tarot") {
-    const start = seed % tarotCards.length;
-    const spread = [0, 1, 2].map((index) => tarotCards[(start + index * 7) % tarotCards.length]);
-    const cardValues = spread.map((card) => tarotCards.indexOf(card) + 1);
+    const deck = shuffleDeck(tarotDeck, seed);
+    const drawn = deck.slice(0, 3).map((card, index) => ({
+      ...card,
+      reversed: indexFromSeed(seed, index * 5, 2) === 1
+    }));
+    const spread = drawn.map((card) => `${card.name}${card.reversed ? "逆位" : "正位"}`);
+    const cardValues = drawn.map((card) => card.power * (card.reversed ? -1 : 1));
     return {
       titleToken: spread[2],
       tokens: spread,
       tilt: {
-        home: (cardValues[0] % 13) - 4,
-        away: (cardValues[1] % 13) - 4,
-        draw: (cardValues[2] % 9) - 2
+        home: drawn[0].attack + cardValues[0] % 7,
+        away: drawn[1].defense + cardValues[1] % 7,
+        draw: drawn[2].draw + (drawn[2].reversed ? 3 : 0)
       },
       steps: [
+        { label: "78张牌库", value: "22张大阿尔卡那 + 56张小阿尔卡那", note: "使用完整塔罗结构，大小牌都会进入洗牌池。" },
         { label: "洗牌种子", value: `${seed % 100000}`, note: "以比赛信息固定洗牌，避免刷新页面导致结果乱跳。" },
-        { label: "牌阵抽取", value: spread.join(" / "), note: "三张牌分别进入气势、转折、落点位置，并参与胜平负加权。" }
+        { label: "牌阵抽取", value: spread.join(" / "), note: "三张牌分别进入气势、转折、落点位置，并参与胜平负加权。" },
+        { label: "正逆位", value: drawn.map((card) => `${card.name}:${card.reversed ? "逆" : "正"}`).join(" / "), note: "逆位会削弱对应方势能，并提高不稳定或平局牵引。" },
+        { label: "元素权重", value: drawn.map((card) => `${card.element}${card.power}`).join(" / "), note: "火偏进攻，土偏防守，水偏僵持，风偏转换。" }
       ]
     };
   }
@@ -370,17 +432,21 @@ function castMethod(methodId: MethodId, match: WorldCupMatch, seed: number): Met
     const dayIndex = (monthIndex + dateParts.day - 1) % liurenStates.length;
     const hourIndex = (dayIndex + timeIndex) % liurenStates.length;
     const states = [liurenStates[monthIndex], liurenStates[dayIndex], liurenStates[hourIndex]];
+    const finalJudgement = liurenJudgements[states[2]];
     return {
       titleToken: states[2],
-      tokens: [states[1], states[0]],
+      tokens: [states[2], `${states[0]} / ${states[1]}`],
       tilt: {
-        home: scoreLiurenState(states[0]) - 3,
-        away: scoreLiurenState(states[1]) - 3,
-        draw: scoreLiurenState(states[2]) - 2
+        home: liurenJudgements[states[0]].home - 3,
+        away: liurenJudgements[states[1]].away - 3,
+        draw: finalJudgement.draw - 2
       },
       steps: [
+        { label: "报时起课", value: "大安起月，月上起日，日上起时", note: "按常见小六壬报时起课法顺推六位。" },
         { label: "月日时起课", value: `${dateParts.month}月 -> ${dateParts.day}日 -> ${getTimeBranchName(match.localTime)}`, note: "按小六壬常见顺推法，从月份起大安，日上再推时辰。" },
-        { label: "三宫落点", value: states.join(" / "), note: "月宫看主队外势，日宫看客队来势，时宫看终局气口。" }
+        { label: "三宫落点", value: states.join(" / "), note: "月宫看主队外势，日宫看客队来势，时宫看终局气口。" },
+        { label: "吉凶分层", value: `${finalJudgement.level} · ${finalJudgement.text}`, note: "大安、速喜、小吉偏吉；留连、赤口、空亡偏阻滞。" },
+        { label: "六神判词", value: Object.entries(liurenJudgements).map(([name, item]) => `${name}:${item.level}`).join(" / "), note: "用六神性质修正主客势能和平局牵引。" }
       ]
     };
   }
@@ -402,7 +468,10 @@ function castMethod(methodId: MethodId, match: WorldCupMatch, seed: number): Met
       },
       steps: [
         { label: "三骰结果", value: `${planet} / ${sign} / ${house}`, note: "三颗骰子分别对应能量来源、表现方式和落入领域。" },
-        { label: "星骰加权", value: `${planetPower}-${signPower}-${housePower}`, note: "行星偏主动力，星座偏对抗形态，宫位偏比赛场景。" }
+        { label: "星骰加权", value: `${planetPower}-${signPower}-${housePower}`, note: "行星偏主动力，星座偏对抗形态，宫位偏比赛场景。" },
+        { label: "庙旺弱陷", value: planetDignities[planet], note: "用行星传统强弱象意决定主动性或保守性。" },
+        { label: "三骰合参", value: `${planet}主能量，${sign}主表现，${house}主落点`, note: "三骰不单独断，组合后再进入比分模型。" },
+        { label: "宫位主题", value: houseThemes[housePower - 1], note: "宫位主题用于判断优势落在射门、协作、防守或隐患。" }
       ]
     };
   }
@@ -413,6 +482,8 @@ function castMethod(methodId: MethodId, match: WorldCupMatch, seed: number): Met
     const movingLine = ((dateParts.year + dateParts.month + dateParts.day + dateParts.hour) % 6) + 1;
     const hexagram = `${trigrams[upperIndex]}${trigrams[lowerIndex]}`;
     const changed = `${trigrams[(upperIndex + movingLine) % trigrams.length]}${trigrams[(lowerIndex + movingLine) % trigrams.length]}`;
+    const mutual = buildMutualHexagram(trigrams[upperIndex], trigrams[lowerIndex]);
+    const bodyUse = movingLine <= 3 ? "上卦为体，下卦为用" : "下卦为体，上卦为用";
     return {
       titleToken: hexagram,
       tokens: [trigrams[upperIndex], trigrams[lowerIndex], `${movingLine}`, changed],
@@ -423,7 +494,10 @@ function castMethod(methodId: MethodId, match: WorldCupMatch, seed: number): Met
       },
       steps: [
         { label: "年月日时", value: `${dateParts.year}+${dateParts.month}+${dateParts.day}+${dateParts.hour}`, note: "用开球时空起数，上卦取年月日，下卦加入时数。" },
-        { label: "本互变卦", value: `${hexagram} -> ${changed}`, note: `第 ${movingLine} 爻动，变卦用于修正比分落点。` }
+        { label: "本互变卦", value: `${hexagram} -> ${mutual} -> ${changed}`, note: `第 ${movingLine} 爻动，互卦看过程，变卦看结果。` },
+        { label: "体用定位", value: bodyUse, note: "体为自身根基，用为对手与外部变化。" },
+        { label: "互卦", value: mutual, note: "取二三四爻、三四五爻组成互卦，观察比赛中段走势。" },
+        { label: "变卦", value: changed, note: "动爻变化后的卦象用于修正终局比分。" }
       ]
     };
   }
@@ -431,20 +505,27 @@ function castMethod(methodId: MethodId, match: WorldCupMatch, seed: number): Met
   if (methodId === "qimen") {
     const dayOfYear = getDayOfYear(match.date);
     const ju = ((dayOfYear + dateParts.hour) % 9) + 1;
-    const door = qimenDoors[(ju + timeIndex) % qimenDoors.length];
+    const dun = dayOfYear >= 172 && dayOfYear < 355 ? "阴遁" : "阳遁";
+    const direction = dun === "阳遁" ? 1 : -1;
+    const door = qimenDoors[positiveModulo(ju + direction * timeIndex, qimenDoors.length)];
     const star = qimenStars[(ju + match.home.length) % qimenStars.length];
     const palace = qimenPalaces[(ju + match.away.length) % qimenPalaces.length];
+    const god = qimenGods[(ju + timeIndex + match.city.length) % qimenGods.length];
+    const chiefDoor = qimenDoors[qimenStars.indexOf(star) % qimenDoors.length];
     return {
       titleToken: door,
-      tokens: [door, star, palace],
+      tokens: [door, star, palace, god, dun, chiefDoor],
       tilt: {
         home: ju + qimenDoors.indexOf(door) - 2,
         away: qimenStars.indexOf(star) - 2,
-        draw: palace.includes("中") || palace.includes("坤") ? 5 : -1
+        draw: palace.includes("中") || palace.includes("坤") || god === "六合" ? 5 : -1
       },
       steps: [
+        { label: "阴阳遁", value: `${dun}${ju}局`, note: "以年内日序近似节气分阴阳遁，再取局数。" },
         { label: "局数排宫", value: `第${ju}局 · ${getTimeBranchName(match.localTime)}`, note: "以年内日序和开球时辰排简化九宫局。" },
-        { label: "门星宫", value: `${door} / ${star} / ${palace}`, note: "门看进攻打开方式，星看执行者，宫看优势落点。" }
+        { label: "门星宫", value: `${door} / ${star} / ${palace}`, note: "门看进攻打开方式，星看执行者，宫看优势落点。" },
+        { label: "值符值使", value: `${star}为值符，${chiefDoor}为值使`, note: "值符定主线，值使定执行路径。" },
+        { label: "八神", value: god, note: "八神用于修正临场变数、犯错和突发性。" }
       ]
     };
   }
@@ -452,17 +533,21 @@ function castMethod(methodId: MethodId, match: WorldCupMatch, seed: number): Met
   const lotNumber = (seed % 64) + 1;
   const lot = oracleLots[lotNumber % oracleLots.length];
   const poem = oraclePoems[lotNumber % oraclePoems.length];
+  const image = oracleImages[lotNumber % oracleImages.length];
   return {
     titleToken: lot,
-    tokens: [`第${lotNumber}签`, poem],
+    tokens: [`第${lotNumber}签`, poem, image],
     tilt: {
       home: (lotNumber % 12) - 3,
       away: ((lotNumber >> 1) % 12) - 3,
-      draw: lot.includes("守") || poem.includes("守") ? 7 : (lotNumber % 6) - 2
+      draw: lot.includes("守") || poem.includes("守") || image.includes("坤") ? 7 : (lotNumber % 6) - 2
     },
     steps: [
       { label: "签号", value: `第${lotNumber}签`, note: "以比赛、球队、开球时间合成签号，固定同场同法的抽签结果。" },
-      { label: "签诗", value: poem, note: "签诗关键词参与胜负、平局和比分修正。" }
+      { label: "签诗", value: poem, note: "签诗关键词参与胜负、平局和比分修正。" },
+      { label: "签诗卦象", value: image, note: "把签诗转为八卦取象，增强解签结构。" },
+      { label: "签意权重", value: `${lot} / ${image}`, note: "签等定强弱，卦象定攻守，签诗定走势。" },
+      { label: "解签方向", value: poem.includes("守") ? "守势优先" : poem.includes("急") || poem.includes("进") ? "攻势优先" : "变局优先", note: "将签意落到足球语境的胜平负方向。" }
     ]
   };
 }
@@ -505,8 +590,34 @@ function scoreLiurenState(state: string) {
   return scores[state] ?? 4;
 }
 
+function shuffleDeck<T>(deck: T[], seed: number) {
+  const result = [...deck];
+  let state = seed;
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    state = stableHash(`${state}:${index}`);
+    const swapIndex = state % (index + 1);
+    [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+  }
+  return result;
+}
+
+function buildMutualHexagram(upper: string, lower: string) {
+  const lines = [...trigramLines[lower], ...trigramLines[upper]];
+  const lowerMutual = trigramFromLines(lines.slice(1, 4));
+  const upperMutual = trigramFromLines(lines.slice(2, 5));
+  return `${upperMutual}${lowerMutual}`;
+}
+
+function trigramFromLines(lines: number[]) {
+  return Object.entries(trigramLines).find(([, value]) => value.join("") === lines.join(""))?.[0] ?? "乾";
+}
+
 function indexFromSeed(seed: number, divisorPower: number, length: number) {
   return Math.floor(seed / 2 ** divisorPower) % length;
+}
+
+function positiveModulo(value: number, length: number) {
+  return ((value % length) + length) % length;
 }
 
 function normalizeScore(home: number, away: number, winnerSide: PredictionSummary["winnerSide"]) {
