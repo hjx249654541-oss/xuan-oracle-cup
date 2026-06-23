@@ -115,4 +115,24 @@ describe("buildPrediction", () => {
       }
     }
   });
+
+  it("uses real astronomy and lunisolar calendar data as calculation inputs", () => {
+    const match = worldCupMatches[0];
+    const astro = buildPrediction(match, ["astro"]).readings[0];
+    const liuren = buildPrediction(match, ["liuren"]).readings[0];
+    const meihua = buildPrediction(match, ["meihua"]).readings[0];
+    const qimen = buildPrediction(match, ["qimen"]).readings[0];
+
+    expect(astro.processSteps.map((step) => step.label)).toEqual(
+      expect.arrayContaining(["赛时星历", "太阳黄经", "月亮黄经", "主要相位"])
+    );
+    expect(astro.processSteps.find((step) => step.label === "太阳黄经")?.value).toMatch(/^\d+\.\d+° · .+座$/);
+    expect(astro.processSteps.find((step) => step.label === "月亮黄经")?.value).toMatch(/^\d+\.\d+° · .+座$/);
+
+    for (const reading of [liuren, meihua, qimen]) {
+      expect(reading.processSteps.map((step) => step.label)).toEqual(expect.arrayContaining(["农历日期", "干支四柱"]));
+      expect(reading.processSteps.find((step) => step.label === "农历日期")?.value).toContain("农历");
+      expect(reading.processSteps.find((step) => step.label === "干支四柱")?.value).toMatch(/年.*月.*日.*时/);
+    }
+  });
 });
