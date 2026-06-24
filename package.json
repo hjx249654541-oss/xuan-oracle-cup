@@ -7,7 +7,10 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "vitest run"
+    "test": "vitest run",
+    "worker:dev": "wrangler dev src/server/worker.ts --assets dist",
+    "worker:deploy": "pnpm build && wrangler deploy",
+    "worker:test": "vitest run src/server"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.0",
@@ -21,6 +24,7 @@
     "vite": "^7.0.0"
   },
   "devDependencies": {
-    "vitest": "^3.0.0"
+    "vitest": "^3.0.0",
+    "wrangler": "^4.103.0"
   }
 }

@@ -1,0 +1,16 @@
+name = "xuan-oracle-cup"
+main = "src/server/worker.ts"
+compatibility_date = "2026-06-24"
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "xuan-oracle-cup"
+database_id = "local-dev-placeholder"
+
+[[kv_namespaces]]
+binding = "MARKET_CACHE"
+id = "local-dev-placeholder"
