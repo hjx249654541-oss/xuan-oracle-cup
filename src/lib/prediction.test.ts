@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { worldCupMatches } from "../data/schedule";
+import { buildAccuracy } from "./accuracy";
 import { buildPrediction, predictionMethods, type MethodId } from "./prediction";
 
 describe("buildPrediction", () => {
@@ -25,7 +26,8 @@ describe("buildPrediction", () => {
       "astro",
       "meihua",
       "qimen",
-      "oracle"
+      "oracle",
+      "ai"
     ]);
   });
 
@@ -77,6 +79,8 @@ describe("buildPrediction", () => {
       expect(reading.scoreHint).toBe(reading.processSteps.find((step) => step.label === "比分落点")?.value);
     }
     expect(Number.isInteger(prediction.upsetIndex)).toBe(true);
+    expect(prediction.totalGoals).toMatch(/^\d+ 球$/);
+    expect([match.home, match.away]).toContain(prediction.kickoffTeam);
   });
 
   it("uses method-specific divination mechanics in every reading", () => {
@@ -87,7 +91,8 @@ describe("buildPrediction", () => {
       astro: ["三骰结果", "星骰加权"],
       meihua: ["年月日时", "本互变卦"],
       qimen: ["局数排宫", "门星宫"],
-      oracle: ["签号", "签诗"]
+      oracle: ["签号", "签诗"],
+      ai: ["模型类型", "实力评级"]
     };
 
     for (const methodId of predictionMethods.map((method) => method.id)) {
@@ -107,7 +112,8 @@ describe("buildPrediction", () => {
       astro: ["庙旺弱陷", "三骰合参", "宫位主题"],
       meihua: ["体用定位", "互卦", "变卦"],
       qimen: ["阴阳遁", "值符值使", "八神"],
-      oracle: ["签诗卦象", "签意权重", "解签方向"]
+      oracle: ["签诗卦象", "签意权重", "解签方向"],
+      ai: ["近五场形态", "盘口倾向", "平局阈值"]
     };
 
     for (const methodId of predictionMethods.map((method) => method.id)) {
@@ -154,5 +160,17 @@ describe("buildPrediction", () => {
     );
     expect(qimen.processSteps.find((step) => step.label === "拆补法定局")?.value).toMatch(/遁\d局/);
     expect(qimen.processSteps.find((step) => step.label === "三奇六仪")?.value).toContain("地盘");
+  });
+
+  it("calculates cumulative post-match accuracy for every method", () => {
+    const accuracy = buildAccuracy(worldCupMatches);
+
+    expect(accuracy).toHaveLength(predictionMethods.length);
+    expect(accuracy[0].played).toBeGreaterThanOrEqual(1);
+    for (const item of accuracy) {
+      expect(item.winnerRate).toBeGreaterThanOrEqual(0);
+      expect(item.scoreRate).toBeGreaterThanOrEqual(0);
+      expect(item.totalGoalsRate).toBeGreaterThanOrEqual(0);
+    }
   });
 });

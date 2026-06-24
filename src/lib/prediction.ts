@@ -3,7 +3,7 @@ import { chartToObject, generateChartByDatetime } from "qimen-dunjia";
 import solarLunar from "solarlunar";
 import type { WorldCupMatch } from "../data/schedule";
 
-export type MethodId = "tarot" | "liuren" | "astro" | "meihua" | "qimen" | "oracle";
+export type MethodId = "tarot" | "liuren" | "astro" | "meihua" | "qimen" | "oracle" | "ai";
 
 export type PredictionMethod = {
   id: MethodId;
@@ -34,6 +34,8 @@ export type PredictionSummary = {
   winner: string;
   winnerSide: "home" | "away" | "draw";
   score: string;
+  totalGoals: string;
+  kickoffTeam: string;
   confidence: number;
   upsetIndex: number;
   consensus: string;
@@ -76,6 +78,12 @@ export const predictionMethods: PredictionMethod[] = [
     name: "签文抽签",
     shortName: "签文",
     subtitle: "上中下签 · 赛前启示"
+  },
+  {
+    id: "ai",
+    name: "AI测算",
+    shortName: "AI",
+    subtitle: "实力战绩 · 概率模型"
   }
 ];
 
@@ -233,22 +241,28 @@ export function buildPrediction(match: WorldCupMatch, enabledMethods: MethodId[]
   const awayTotal = readings.reduce((sum, item) => sum + item.awaySignal, 0);
   const drawTotal = readings.reduce((sum, item) => sum + item.drawSignal, 0);
   const delta = homeTotal - awayTotal;
-  const winnerSide = drawTotal >= Math.max(homeTotal, awayTotal) - readings.length * 5 ? "draw" : delta >= 0 ? "home" : "away";
+  const drawPressure = drawTotal / readings.length;
+  const sideGap = Math.abs(delta) / readings.length;
+  const winnerSide = drawPressure >= 43 && sideGap <= 9 ? "draw" : delta >= 0 ? "home" : "away";
   const winner = winnerSide === "draw" ? "平局" : winnerSide === "home" ? `${match.home} 胜` : `${match.away} 胜`;
   const homeGoals = Math.round(readings.reduce((sum, item) => sum + item.homeGoals, 0) / readings.length);
   const awayGoals = Math.round(readings.reduce((sum, item) => sum + item.awayGoals, 0) / readings.length);
   const normalizedScore = normalizeScore(homeGoals, awayGoals, winnerSide);
+  const totalGoals = normalizedScore.home + normalizedScore.away;
   const confidence = clamp(Math.round(readings.reduce((sum, item) => sum + item.confidence, 0) / readings.length), 45, 91);
   const upsetIndex = Math.round(clamp(100 - confidence + Math.abs(delta) / readings.length + (base % 16), 12, 88));
+  const kickoffTeam = pickKickoffTeam(match, base, winnerSide);
   const consensus =
     readings.length === 1
       ? `${readings[0].title}单法指向：${readings[0].leaning}`
-      : `${readings.length}法共识：${winnerSide === "draw" ? "僵持成局" : winner}`;
+      : `${readings.length}法共识：${winnerSide === "draw" ? "平局/僵持成局" : winner}`;
 
   return {
     winner,
     winnerSide,
     score: `${normalizedScore.home} : ${normalizedScore.away}`,
+    totalGoals: `${totalGoals} 球`,
+    kickoffTeam,
     confidence,
     upsetIndex,
     consensus,
@@ -275,7 +289,7 @@ function buildReading(methodId: MethodId, match: WorldCupMatch, seed: number): I
   const homeSignal = clamp(Math.round(baseline.home + cast.tilt.home), 12, 99);
   const awaySignal = clamp(Math.round(baseline.away + cast.tilt.away), 12, 99);
   const drawSignal = clamp(Math.round(baseline.draw + cast.tilt.draw), 8, 99);
-  const winnerSide = drawSignal >= Math.max(homeSignal, awaySignal) - 5 ? "draw" : homeSignal >= awaySignal ? "home" : "away";
+  const winnerSide = drawSignal >= 43 && Math.abs(homeSignal - awaySignal) <= 9 ? "draw" : homeSignal >= awaySignal ? "home" : "away";
   const winner = winnerSide === "draw" ? "平局" : winnerSide === "home" ? `${match.home} 胜` : `${match.away} 胜`;
   const rawHomeGoals = estimateGoals(homeSignal, awaySignal, drawSignal, "home", methodSeed);
   const rawAwayGoals = estimateGoals(awaySignal, homeSignal, drawSignal, "away", methodSeed);
@@ -468,6 +482,34 @@ function buildReading(methodId: MethodId, match: WorldCupMatch, seed: number): I
     };
   }
 
+  if (methodId === "ai") {
+    const [ratingLine, formLine, oddsLine] = cast.tokens;
+    return {
+      methodId,
+      title: "AI测算 · 实力概率",
+      leaning: winner,
+      scoreHint: `${score.home}-${score.away}`,
+      confidence,
+      explanation: `AI模型用球队强弱、模拟近况、场地与盘口信号先做概率，再与比分分布合成结论。`,
+      basis,
+      calculationKey,
+      processTitle: "AI概率模型",
+      signalSummary: `主${homeSignal} · 客${awaySignal} · 和${drawSignal}`,
+      processSteps: [
+        ...numericSteps,
+        ...cast.steps,
+        { label: "实力输入", value: ratingLine, note: "球队评级作为模型主特征，避免完全靠玄学象意。" },
+        { label: "近况输入", value: formLine, note: "用稳定种子模拟近五场状态，后续可替换成真实战绩 API。" },
+        { label: "盘口参考", value: oddsLine, note: "若赛程有盘口快照则纳入强弱校准；实时盘口后续可接付费接口。" }
+      ],
+      homeSignal,
+      awaySignal,
+      drawSignal,
+      homeGoals: score.home,
+      awayGoals: score.away
+    };
+  }
+
   throw new Error(`Unsupported prediction method: ${methodId}`);
 }
 
@@ -622,6 +664,28 @@ function scoreQimenGod(god: string) {
 
 function signed(value: number) {
   return value > 0 ? `+${value}` : `${value}`;
+}
+
+function parseAmericanOdds(value?: string) {
+  if (!value) {
+    return 0;
+  }
+  const numeric = Number(value.replace("+", ""));
+  if (!Number.isFinite(numeric) || numeric === 0) {
+    return 0;
+  }
+  const probability = numeric < 0 ? Math.abs(numeric) / (Math.abs(numeric) + 100) : 100 / (numeric + 100);
+  return probability - 0.33;
+}
+
+function pickKickoffTeam(match: WorldCupMatch, seed: number, winnerSide: PredictionSummary["winnerSide"]) {
+  const coin = stableHash(`${match.id}:kickoff:${seed}`) % 100;
+  if (winnerSide === "draw") {
+    return coin % 2 === 0 ? match.home : match.away;
+  }
+  const favorite = winnerSide === "home" ? match.away : match.home;
+  const underdog = winnerSide === "home" ? match.home : match.away;
+  return coin < 58 ? favorite : underdog;
 }
 
 function castMethod(methodId: MethodId, match: WorldCupMatch, seed: number, astroContext: AstroContext, lunisolarContext: LunisolarContext): MethodCast {
@@ -782,6 +846,32 @@ function castMethod(methodId: MethodId, match: WorldCupMatch, seed: number, astr
         { label: "天盘地盘", value: `天盘:${chart.heavenPlate.join(" ")} / 地盘:${chart.earthPlate.join(" ")}`, note: "天盘随时辰飞布，地盘为三奇六仪基础层。" },
         { label: "三奇六仪", value: `地盘:${chart.earthPlate.join(" ")}；天盘:${chart.heavenPlate.join(" ")}`, note: "乙丙丁为三奇，戊己庚辛壬癸为六仪。" },
         { label: "八神", value: chart.godLayer.filter(Boolean).join(" / "), note: "八神层用于修正临场变数、犯错和突发性。" }
+      ]
+    };
+  }
+
+  if (methodId === "ai") {
+    const homeRating = getTeamPower(match.home);
+    const awayRating = getTeamPower(match.away);
+    const homeForm = 44 + (stableHash(`${match.home}:form:${match.date}`) % 18);
+    const awayForm = 44 + (stableHash(`${match.away}:form:${match.date}`) % 18);
+    const oddsLean = parseAmericanOdds(match.odds?.home) - parseAmericanOdds(match.odds?.away);
+    const ratingGap = homeRating - awayRating + getHostBonus(match);
+    const closeness = Math.max(0, 9 - Math.abs(ratingGap));
+    return {
+      titleToken: "实力概率",
+      tokens: [`${match.home}${homeRating} / ${match.away}${awayRating}`, `近况 ${homeForm}-${awayForm}`, match.odds ? `${match.odds.home}/${match.odds.draw}/${match.odds.away}` : "暂无盘口"],
+      tilt: {
+        home: Math.round((ratingGap + homeForm - awayForm) * 0.42 + oddsLean * 5),
+        away: Math.round((-ratingGap + awayForm - homeForm) * 0.42 - oddsLean * 5),
+        draw: closeness + (match.phase === "小组赛" ? 4 : -3) + (Math.abs(homeForm - awayForm) <= 3 ? 5 : 0)
+      },
+      steps: [
+        { label: "模型类型", value: "确定性AI评分", note: "当前为前端可部署的轻量概率模型；同一比赛、同一版本、所有用户结果一致。" },
+        { label: "实力评级", value: `${match.home}:${homeRating} / ${match.away}:${awayRating}`, note: "以球队档位建立强弱差，未来可替换 FIFA Elo、Opta、赔率隐含概率等真实源。" },
+        { label: "近五场形态", value: `${homeForm}-${awayForm}`, note: "现阶段用固定种子生成稳定形态值，后续接真实战绩接口后可自动更新。" },
+        { label: "盘口倾向", value: match.odds ? `${match.odds.home} / ${match.odds.draw} / ${match.odds.away}` : "暂无", note: "盘口只作参考特征，不直接复制庄家结论。" },
+        { label: "平局阈值", value: `接近度${closeness}`, note: "强弱越接近、近况越接近，小组赛越容易提高平局概率。" }
       ]
     };
   }

@@ -1,4 +1,25 @@
 export type MatchPhase = "小组赛" | "淘汰赛";
+export type MatchStatus = "finished" | "live" | "upcoming";
+
+export type MatchResult = {
+  home: number;
+  away: number;
+  status: MatchStatus;
+  minute?: string;
+  source: string;
+};
+
+export type OddsSnapshot = {
+  home: string;
+  draw: string;
+  away: string;
+  totalLine: string;
+  over: string;
+  under: string;
+  bookmaker: string;
+  updatedAt: string;
+  locked: boolean;
+};
 
 export type WorldCupMatch = {
   id: string;
@@ -13,6 +34,8 @@ export type WorldCupMatch = {
   country: string;
   source: string;
   lastUpdated: string;
+  result?: MatchResult;
+  odds?: OddsSnapshot;
 };
 
 export const worldCupMatches: WorldCupMatch[] = [
@@ -28,7 +51,24 @@ export const worldCupMatches: WorldCupMatch[] = [
     city: "休斯敦",
     country: "美国",
     source: "FIFA / ESPN / FOX, 2026-06-23",
-    lastUpdated: "2026-06-23"
+    lastUpdated: "2026-06-24",
+    result: {
+      home: 5,
+      away: 0,
+      status: "finished",
+      source: "ESPN / CBS Sports / Guardian, 2026-06-23"
+    },
+    odds: {
+      home: "-650",
+      draw: "+750",
+      away: "+2000",
+      totalLine: "3.5",
+      over: "+120",
+      under: "-148",
+      bookmaker: "Oddschecker / Action Network snapshot",
+      updatedAt: "赛前快照 2026-06-23",
+      locked: false
+    }
   },
   {
     id: "2026-06-23-eng-gha",
@@ -42,7 +82,18 @@ export const worldCupMatches: WorldCupMatch[] = [
     city: "波士顿",
     country: "美国",
     source: "FIFA / ESPN / FOX, 2026-06-23",
-    lastUpdated: "2026-06-23"
+    lastUpdated: "2026-06-23",
+    odds: {
+      home: "-210",
+      draw: "+340",
+      away: "+650",
+      totalLine: "2.5",
+      over: "-105",
+      under: "-115",
+      bookmaker: "盘口模块演示",
+      updatedAt: "待接实时源",
+      locked: true
+    }
   },
   {
     id: "2026-06-23-pan-cro",
@@ -56,7 +107,18 @@ export const worldCupMatches: WorldCupMatch[] = [
     city: "多伦多",
     country: "加拿大",
     source: "FIFA / ESPN / FOX, 2026-06-23",
-    lastUpdated: "2026-06-23"
+    lastUpdated: "2026-06-23",
+    odds: {
+      home: "+700",
+      draw: "+380",
+      away: "-240",
+      totalLine: "2.5",
+      over: "+100",
+      under: "-120",
+      bookmaker: "盘口模块演示",
+      updatedAt: "待接实时源",
+      locked: true
+    }
   },
   {
     id: "2026-06-23-col-cod",
@@ -70,7 +132,18 @@ export const worldCupMatches: WorldCupMatch[] = [
     city: "瓜达拉哈拉",
     country: "墨西哥",
     source: "FIFA / ESPN / FOX, 2026-06-23",
-    lastUpdated: "2026-06-23"
+    lastUpdated: "2026-06-23",
+    odds: {
+      home: "-155",
+      draw: "+295",
+      away: "+430",
+      totalLine: "2.5",
+      over: "+105",
+      under: "-125",
+      bookmaker: "盘口模块演示",
+      updatedAt: "待接实时源",
+      locked: true
+    }
   },
   {
     id: "2026-06-24-mar-hai",
@@ -84,7 +157,18 @@ export const worldCupMatches: WorldCupMatch[] = [
     city: "亚特兰大",
     country: "美国",
     source: "Atlanta FIFA World Cup 26 host city schedule",
-    lastUpdated: "2026-06-23"
+    lastUpdated: "2026-06-23",
+    odds: {
+      home: "-380",
+      draw: "+470",
+      away: "+980",
+      totalLine: "2.5",
+      over: "-130",
+      under: "+110",
+      bookmaker: "盘口模块演示",
+      updatedAt: "待接实时源",
+      locked: true
+    }
   },
   {
     id: "2026-06-25-usa-tur",
@@ -98,7 +182,18 @@ export const worldCupMatches: WorldCupMatch[] = [
     city: "洛杉矶",
     country: "美国",
     source: "FOX / FIFA, 2026-06-23",
-    lastUpdated: "2026-06-23"
+    lastUpdated: "2026-06-23",
+    odds: {
+      home: "+155",
+      draw: "+240",
+      away: "+175",
+      totalLine: "2.5",
+      over: "+100",
+      under: "-120",
+      bookmaker: "盘口模块演示",
+      updatedAt: "待接实时源",
+      locked: true
+    }
   },
   {
     id: "2026-06-25-jpn-swe",

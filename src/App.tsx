@@ -6,13 +6,16 @@ import {
   ChevronRight,
   CircleDot,
   Dices,
+  Lock,
   RefreshCw,
   Sparkles,
   Star,
+  TrendingUp,
   Trophy
 } from "lucide-react";
 import { formatLocalKickoff, worldCupMatches, type MatchPhase, type WorldCupMatch } from "./data/schedule";
 import { buildPrediction, predictionMethods, type MethodId } from "./lib/prediction";
+import { buildAccuracy } from "./lib/accuracy";
 import { getPrimaryActionLabel } from "./lib/uiCopy";
 
 type PhaseFilter = "全部" | MatchPhase;
@@ -24,7 +27,8 @@ const methodIcons: Record<MethodId, string> = {
   astro: "♍",
   meihua: "卦",
   qimen: "门",
-  oracle: "签"
+  oracle: "签",
+  ai: "AI"
 };
 
 function App() {
@@ -32,7 +36,7 @@ function App() {
   const [activeDate, setActiveDate] = useState(dates[0]);
   const [phase, setPhase] = useState<PhaseFilter>("全部");
   const [selectedMatchId, setSelectedMatchId] = useState(worldCupMatches[0].id);
-  const [enabledMethods, setEnabledMethods] = useState<MethodId[]>(["tarot", "liuren", "astro"]);
+  const [enabledMethods, setEnabledMethods] = useState<MethodId[]>(["ai", "qimen", "tarot"]);
   const [tab, setTab] = useState<ViewTab>("赛程");
   const [hasRun, setHasRun] = useState(false);
   const [openReadingId, setOpenReadingId] = useState<MethodId | null>(null);
@@ -44,6 +48,7 @@ function App() {
     return dateMatches && phaseMatches;
   });
   const prediction = useMemo(() => buildPrediction(selectedMatch, enabledMethods), [enabledMethods, selectedMatch]);
+  const accuracy = useMemo(() => buildAccuracy(worldCupMatches), []);
 
   function toggleMethod(methodId: MethodId) {
     setEnabledMethods((current) => {
@@ -179,6 +184,8 @@ function App() {
                   })}
                 </div>
               </section>
+
+              <OddsPanel match={selectedMatch} />
             </>
           )}
 
@@ -204,6 +211,14 @@ function App() {
                   <ResultRow label="预测比分">
                     <strong className="big-score">{prediction.score}</strong>
                     <span>{selectedMatch.home} vs {selectedMatch.away}</span>
+                  </ResultRow>
+                  <ResultRow label="总进球">
+                    <strong className="consensus">{prediction.totalGoals}</strong>
+                    <span>含常规时间进球数推演</span>
+                  </ResultRow>
+                  <ResultRow label="开球队伍">
+                    <strong className="consensus">{prediction.kickoffTeam}</strong>
+                    <span>按赛前掷硬币/攻守选择倾向推演</span>
                   </ResultRow>
                   <ResultRow label="爆冷指数">
                     <div className="stars" aria-label={`爆冷指数 ${prediction.upsetIndex}`}>
@@ -261,6 +276,8 @@ function App() {
                   );
                 })}
               </section>
+
+              <AccuracyPanel accuracy={accuracy} />
             </>
           )}
         </div>
@@ -283,7 +300,7 @@ function SelectedMatch({ match }: { match: WorldCupMatch }) {
         <span>{match.phase} · {match.group}</span>
         <strong>{match.home} vs {match.away}</strong>
       </div>
-      <p>{formatLocalKickoff(match)} · {match.city}</p>
+      <p>{match.result?.status === "finished" ? `${match.result.home}-${match.result.away} 完场` : `${formatLocalKickoff(match)} · ${match.city}`}</p>
     </section>
   );
 }
@@ -297,12 +314,78 @@ function MatchCard({ match, selected, onSelect }: { match: WorldCupMatch; select
       </div>
       <div className="teams">
         <TeamBadge name={match.home} />
-        <span className="versus">VS</span>
+        <span className={match.result ? "versus score-live" : "versus"}>{match.result ? `${match.result.home}-${match.result.away}` : "VS"}</span>
         <TeamBadge name={match.away} />
       </div>
-      <div className="match-status">{selected ? "✓" : "○"}</div>
+      <div className="match-status">{match.result?.status === "finished" ? "FT" : selected ? "✓" : "○"}</div>
       <p className="venue-line">{formatLocalKickoff(match)} · {match.city} · {match.venue}</p>
+      {match.result && <p className="result-source">赛果：{match.result.source}</p>}
     </button>
+  );
+}
+
+function OddsPanel({ match }: { match: WorldCupMatch }) {
+  const odds = match.odds;
+  if (!odds) {
+    return null;
+  }
+
+  return (
+    <section className="odds-panel" aria-label="盘口赔率">
+      <div className="section-title">
+        <h2>盘口赔率</h2>
+        <span>{odds.updatedAt}</span>
+      </div>
+      <div className={odds.locked ? "odds-grid locked" : "odds-grid"}>
+        <div>
+          <span>{match.home}</span>
+          <strong>{odds.home}</strong>
+        </div>
+        <div>
+          <span>平局</span>
+          <strong>{odds.draw}</strong>
+        </div>
+        <div>
+          <span>{match.away}</span>
+          <strong>{odds.away}</strong>
+        </div>
+      </div>
+      <div className="total-line">
+        <TrendingUp size={16} aria-hidden="true" />
+        <span>大小 {odds.totalLine}：大 {odds.over} / 小 {odds.under}</span>
+      </div>
+      <div className="odds-foot">
+        <span>{odds.bookmaker}</span>
+        {odds.locked && (
+          <strong>
+            <Lock size={13} aria-hidden="true" />
+            付费查看实时
+          </strong>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function AccuracyPanel({ accuracy }: { accuracy: ReturnType<typeof buildAccuracy> }) {
+  const played = accuracy[0]?.played ?? 0;
+  return (
+    <section className="accuracy-panel" aria-label="测算准确率">
+      <div className="section-title">
+        <h2>赛后准确率</h2>
+        <span>{played} 场已结算</span>
+      </div>
+      <div className="accuracy-list">
+        {accuracy.map((item) => (
+          <div className="accuracy-row" key={item.methodId}>
+            <strong>{item.name}</strong>
+            <span>胜平负 {item.winnerRate}%</span>
+            <span>比分 {item.scoreRate}%</span>
+            <span>总球 {item.totalGoalsRate}%</span>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

@@ -337,6 +337,11 @@ p {
   font-weight: 800;
 }
 
+.score-live {
+  color: #5ffff2;
+  font-size: 20px;
+}
+
 .match-status {
   justify-self: end;
   color: #5ffff2;
@@ -347,6 +352,12 @@ p {
   grid-column: 1 / -1;
   padding-top: 7px;
   border-top: 1px solid rgba(223, 238, 255, 0.08);
+}
+
+.result-source {
+  grid-column: 1 / -1;
+  color: rgba(255, 211, 111, 0.72);
+  font-size: 11px;
 }
 
 .selected-note {
@@ -392,8 +403,18 @@ p {
 }
 
 .method-panel,
-.result-panel {
+.result-panel,
+.odds-panel,
+.accuracy-panel {
   padding: 14px;
+}
+
+.odds-panel,
+.accuracy-panel {
+  margin-top: 12px;
+  border: 1px solid rgba(91, 255, 243, 0.22);
+  border-radius: 8px;
+  background: rgba(3, 13, 22, 0.72);
 }
 
 .section-title,
@@ -562,6 +583,84 @@ p {
   display: flex;
   gap: 5px;
   color: #ffd36f;
+}
+
+.odds-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.odds-grid div {
+  min-height: 68px;
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid rgba(229, 241, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(6, 17, 28, 0.82);
+}
+
+.odds-grid.locked div {
+  opacity: 0.72;
+}
+
+.odds-grid span,
+.total-line,
+.odds-foot,
+.accuracy-row span {
+  color: rgba(232, 241, 255, 0.64);
+  font-size: 12px;
+}
+
+.odds-grid strong {
+  color: #ffd36f;
+  font-size: 18px;
+}
+
+.total-line,
+.odds-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.total-line {
+  justify-content: flex-start;
+  color: #5ffff2;
+}
+
+.odds-foot strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #ffd36f;
+  font-size: 12px;
+}
+
+.accuracy-list {
+  display: grid;
+  gap: 7px;
+}
+
+.accuracy-row {
+  display: grid;
+  grid-template-columns: 48px repeat(3, 1fr);
+  gap: 6px;
+  align-items: center;
+  min-height: 42px;
+  padding: 8px;
+  border: 1px solid rgba(229, 241, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(6, 17, 28, 0.72);
+}
+
+.accuracy-row strong {
+  color: #5ffff2;
+  font-size: 13px;
 }
 
 .reading-list {
