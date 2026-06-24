@@ -9,8 +9,8 @@ binding = "ASSETS"
 [[d1_databases]]
 binding = "DB"
 database_name = "xuan-oracle-cup"
-database_id = "local-dev-placeholder"
+database_id = "71623528-7b92-4435-8279-891664476eac"
 
 [[kv_namespaces]]
 binding = "MARKET_CACHE"
-id = "local-dev-placeholder"
+id = "1d5ad6240f484e15a6ca4babd8414147"

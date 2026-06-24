@@ -6,6 +6,9 @@ import { createRepository } from "./repositories";
 
 type Env = {
   DB?: unknown;
+  ASSETS?: {
+    fetch(request: Request): Promise<Response>;
+  };
 };
 
 const jsonHeaders = {
@@ -72,6 +75,10 @@ const worker = {
 
     if (request.method === "GET" && url.pathname === "/api/accuracy") {
       return json({ accuracy: buildAccuracy(repository.listMatches()) });
+    }
+
+    if (env?.ASSETS && request.method === "GET" && !url.pathname.startsWith("/api/")) {
+      return env.ASSETS.fetch(request);
     }
 
     return json({ error: "not-found" }, 404);

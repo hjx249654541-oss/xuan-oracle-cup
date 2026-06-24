@@ -37,4 +37,15 @@ describe("worker API", () => {
 
     expect(await left.json()).toEqual(await right.json());
   });
+
+  it("delegates non-api requests to static assets when available", async () => {
+    const response = await worker.fetch(new Request("https://example.com/"), {
+      ASSETS: {
+        fetch: async () => new Response("<!doctype html>", { headers: { "content-type": "text/html" } })
+      }
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain("<!doctype html>");
+  });
 });
