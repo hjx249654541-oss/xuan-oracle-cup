@@ -34,11 +34,13 @@ const methodIcons: Record<MethodId, string> = {
 };
 
 function App() {
+  const [todayKey, setTodayKey] = useState(getTodayDateKey);
   const [matches, setMatches] = useState<WorldCupMatch[]>(worldCupMatches);
-  const dates = Array.from(new Set(matches.map((match) => match.date)));
-  const [activeDate, setActiveDate] = useState(dates[0]);
+  const dates = useMemo(() => Array.from(new Set(matches.map((match) => match.date))).sort(), [matches]);
+  const [activeDate, setActiveDate] = useState(() => getDefaultScheduleDate(worldCupMatches, getTodayDateKey()));
+  const [dateTouched, setDateTouched] = useState(false);
   const [phase, setPhase] = useState<PhaseFilter>("全部");
-  const [selectedMatchId, setSelectedMatchId] = useState(worldCupMatches[0].id);
+  const [selectedMatchId, setSelectedMatchId] = useState(() => getDefaultSelectedMatchId(worldCupMatches, getTodayDateKey()));
   const [enabledMethods, setEnabledMethods] = useState<MethodId[]>(["ai", "qimen", "tarot"]);
   const [tab, setTab] = useState<ViewTab>("赛程");
   const [hasRun, setHasRun] = useState(false);
@@ -49,9 +51,21 @@ function App() {
 
   useEffect(() => {
     refreshRemoteData();
+    const clockId = window.setInterval(() => setTodayKey(getTodayDateKey()), 60000);
     const intervalId = window.setInterval(refreshRemoteData, 60000);
-    return () => window.clearInterval(intervalId);
+    return () => {
+      window.clearInterval(clockId);
+      window.clearInterval(intervalId);
+    };
   }, []);
+
+  useEffect(() => {
+    const nextActiveDate = getDefaultScheduleDate(matches, todayKey);
+    if (!dates.includes(activeDate) || (!dateTouched && activeDate < todayKey)) {
+      setActiveDate(nextActiveDate);
+      setSelectedMatchId(getDefaultSelectedMatchId(matches, nextActiveDate));
+    }
+  }, [activeDate, dateTouched, dates, matches, todayKey]);
 
   useEffect(() => {
     setMarketData(null);
@@ -164,9 +178,17 @@ function App() {
                 <ChevronLeft size={22} aria-hidden="true" />
                 <div className="date-list">
                   {dates.map((date) => (
-                    <button key={date} className={activeDate === date ? "date-pill active" : "date-pill"} type="button" onClick={() => setActiveDate(date)}>
+                    <button
+                      key={date}
+                      className={activeDate === date ? "date-pill active" : "date-pill"}
+                      type="button"
+                      onClick={() => {
+                        setDateTouched(true);
+                        setActiveDate(date);
+                      }}
+                    >
                       <strong>{date.slice(5).replace("-", "/")}</strong>
-                      <span>{date === "2026-06-23" ? "今天" : weekdayLabel(date)}</span>
+                      <span>{date === todayKey ? "今天" : weekdayLabel(date)}</span>
                     </button>
                   ))}
                 </div>
@@ -516,6 +538,23 @@ function marketSnapshotToOdds(snapshot: MarketSnapshotDTO) {
     updatedAt: snapshot.fetchedAt,
     locked: snapshot.locked
   };
+}
+
+function getTodayDateKey() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const date = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${date}`;
+}
+
+function getDefaultScheduleDate(matches: WorldCupMatch[], todayKey: string) {
+  const dates = Array.from(new Set(matches.map((match) => match.date))).sort();
+  return dates.find((date) => date === todayKey) ?? dates.find((date) => date > todayKey) ?? dates.at(-1) ?? todayKey;
+}
+
+function getDefaultSelectedMatchId(matches: WorldCupMatch[], dateKey: string) {
+  return matches.find((match) => match.date === dateKey)?.id ?? matches[0]?.id ?? worldCupMatches[0].id;
 }
 
 export default App;

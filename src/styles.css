@@ -299,7 +299,7 @@ p {
 
 .teams {
   display: grid;
-  grid-template-columns: 1fr 34px 1fr;
+  grid-template-columns: minmax(0, 1fr) 54px minmax(0, 1fr);
   align-items: center;
   gap: 6px;
 }
@@ -335,6 +335,8 @@ p {
   color: #ffd36f;
   font-size: 18px;
   font-weight: 800;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .score-live {
