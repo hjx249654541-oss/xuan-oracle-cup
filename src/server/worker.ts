@@ -2,7 +2,11 @@ import { buildAccuracy } from "../lib/accuracy";
 import { buildPrediction, predictionMethods, type MethodId } from "../lib/prediction";
 import { resolveAccess, usageDateFromIso } from "./access";
 import { createDemoMarketSnapshot } from "./marketData";
-import { findMatch, getUsage, hasActiveEntitlement, incrementUsage, listMatches } from "./repositories";
+import { createRepository } from "./repositories";
+
+type Env = {
+  DB?: unknown;
+};
 
 const jsonHeaders = {
   "content-type": "application/json; charset=utf-8",
@@ -10,17 +14,18 @@ const jsonHeaders = {
 };
 
 const worker = {
-  async fetch(request: Request): Promise<Response> {
+  async fetch(request: Request, env?: Env): Promise<Response> {
+    const repository = createRepository(env?.DB);
     const url = new URL(request.url);
 
     if (request.method === "GET" && url.pathname === "/api/matches") {
-      return json({ matches: listMatches() });
+      return json({ matches: repository.listMatches() });
     }
 
     const oddsMatch = url.pathname.match(/^\/api\/matches\/([^/]+)\/odds$/);
     if (request.method === "GET" && oddsMatch) {
       const matchId = oddsMatch[1];
-      const match = findMatch(matchId);
+      const match = repository.findMatch(matchId);
       if (!match) {
         return json({ error: "not-found" }, 404);
       }
@@ -29,8 +34,8 @@ const worker = {
       const nowIso = new Date("2026-06-24T12:00:00.000Z").toISOString();
       const usageDate = usageDateFromIso(nowIso);
       const decision = resolveAccess({
-        currentViews: getUsage(visitorId, usageDate),
-        hasActiveEntitlement: hasActiveEntitlement(visitorId, nowIso),
+        currentViews: repository.getUsage(visitorId, usageDate),
+        hasActiveEntitlement: repository.hasActiveEntitlement(visitorId, nowIso),
         nowIso
       });
 
@@ -45,7 +50,7 @@ const worker = {
       }
 
       if (decision.shouldIncrementUsage) {
-        incrementUsage(visitorId, usageDate);
+        repository.incrementUsage(visitorId, usageDate);
       }
 
       return json({
@@ -57,7 +62,7 @@ const worker = {
 
     const predictionMatch = url.pathname.match(/^\/api\/predictions\/([^/]+)$/);
     if (request.method === "GET" && predictionMatch) {
-      const match = findMatch(predictionMatch[1]);
+      const match = repository.findMatch(predictionMatch[1]);
       if (!match) {
         return json({ error: "not-found" }, 404);
       }
@@ -66,7 +71,7 @@ const worker = {
     }
 
     if (request.method === "GET" && url.pathname === "/api/accuracy") {
-      return json({ accuracy: buildAccuracy(listMatches()) });
+      return json({ accuracy: buildAccuracy(repository.listMatches()) });
     }
 
     return json({ error: "not-found" }, 404);
