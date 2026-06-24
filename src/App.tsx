@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
   CalendarDays,
@@ -15,8 +15,10 @@ import {
 } from "lucide-react";
 import { formatLocalKickoff, worldCupMatches, type MatchPhase, type WorldCupMatch } from "./data/schedule";
 import { buildPrediction, predictionMethods, type MethodId } from "./lib/prediction";
-import { buildAccuracy } from "./lib/accuracy";
+import { buildAccuracy, type MethodAccuracy } from "./lib/accuracy";
+import { loadAccuracy, loadMarketData, loadMatches, type MarketDataResponse } from "./lib/apiClient";
 import { getPrimaryActionLabel } from "./lib/uiCopy";
+import type { MatchDTO, MarketSnapshotDTO } from "./server/types";
 
 type PhaseFilter = "全部" | MatchPhase;
 type ViewTab = "赛程" | "测算" | "结果";
@@ -32,7 +34,8 @@ const methodIcons: Record<MethodId, string> = {
 };
 
 function App() {
-  const dates = Array.from(new Set(worldCupMatches.map((match) => match.date)));
+  const [matches, setMatches] = useState<WorldCupMatch[]>(worldCupMatches);
+  const dates = Array.from(new Set(matches.map((match) => match.date)));
   const [activeDate, setActiveDate] = useState(dates[0]);
   const [phase, setPhase] = useState<PhaseFilter>("全部");
   const [selectedMatchId, setSelectedMatchId] = useState(worldCupMatches[0].id);
@@ -40,15 +43,31 @@ function App() {
   const [tab, setTab] = useState<ViewTab>("赛程");
   const [hasRun, setHasRun] = useState(false);
   const [openReadingId, setOpenReadingId] = useState<MethodId | null>(null);
+  const [marketData, setMarketData] = useState<MarketDataResponse | null>(null);
+  const [marketError, setMarketError] = useState("");
+  const [accuracy, setAccuracy] = useState<MethodAccuracy[]>(buildAccuracy(worldCupMatches));
 
-  const selectedMatch = worldCupMatches.find((match) => match.id === selectedMatchId) ?? worldCupMatches[0];
-  const visibleMatches = worldCupMatches.filter((match) => {
+  useEffect(() => {
+    loadMatches()
+      .then((items) => setMatches(items.map(matchDtoToWorldCupMatch)))
+      .catch(() => setMatches(worldCupMatches));
+    loadAccuracy()
+      .then(setAccuracy)
+      .catch(() => setAccuracy(buildAccuracy(worldCupMatches)));
+  }, []);
+
+  useEffect(() => {
+    setMarketData(null);
+    setMarketError("");
+  }, [selectedMatchId]);
+
+  const selectedMatch = matches.find((match) => match.id === selectedMatchId) ?? matches[0] ?? worldCupMatches[0];
+  const visibleMatches = matches.filter((match) => {
     const dateMatches = match.date === activeDate;
     const phaseMatches = phase === "全部" || match.phase === phase;
     return dateMatches && phaseMatches;
   });
   const prediction = useMemo(() => buildPrediction(selectedMatch, enabledMethods), [enabledMethods, selectedMatch]);
-  const accuracy = useMemo(() => buildAccuracy(worldCupMatches), []);
 
   function toggleMethod(methodId: MethodId) {
     setEnabledMethods((current) => {
@@ -73,6 +92,23 @@ function App() {
     setTab("结果");
   }
 
+  function refreshSchedule() {
+    loadMatches()
+      .then((items) => setMatches(items.map(matchDtoToWorldCupMatch)))
+      .catch(() => setMatches(worldCupMatches));
+  }
+
+  async function revealMarketData() {
+    setMarketError("");
+    try {
+      const response = await loadMarketData(selectedMatch.id, getVisitorId());
+      setMarketData(response);
+    } catch (error) {
+      setMarketData(null);
+      setMarketError(error instanceof Error ? error.message : "市场数据暂不可用");
+    }
+  }
+
   return (
     <main className="page-shell">
       <section className="phone-frame" aria-label="玄球 Oracle">
@@ -87,7 +123,7 @@ function App() {
               <p>世界杯赛程 · 多术法测算</p>
             </div>
           </div>
-          <button className="ghost-button" type="button" aria-label="更新赛程">
+          <button className="ghost-button" type="button" aria-label="更新赛程" onClick={refreshSchedule}>
             <RefreshCw size={17} aria-hidden="true" />
             <span>更新赛程</span>
           </button>
@@ -134,7 +170,7 @@ function App() {
               </div>
 
               <div className="match-list">
-                {(visibleMatches.length > 0 ? visibleMatches : worldCupMatches.slice(0, 3)).map((match) => (
+                {(visibleMatches.length > 0 ? visibleMatches : matches.slice(0, 3)).map((match) => (
                   <MatchCard
                     key={match.id}
                     match={match}
@@ -185,7 +221,7 @@ function App() {
                 </div>
               </section>
 
-              <OddsPanel match={selectedMatch} />
+              <OddsPanel match={selectedMatch} marketData={marketData} marketError={marketError} onReveal={revealMarketData} />
             </>
           )}
 
@@ -324,17 +360,29 @@ function MatchCard({ match, selected, onSelect }: { match: WorldCupMatch; select
   );
 }
 
-function OddsPanel({ match }: { match: WorldCupMatch }) {
-  const odds = match.odds;
+function OddsPanel({
+  match,
+  marketData,
+  marketError,
+  onReveal
+}: {
+  match: WorldCupMatch;
+  marketData: MarketDataResponse | null;
+  marketError: string;
+  onReveal: () => void;
+}) {
+  const odds = marketData?.market ?? match.odds;
   if (!odds) {
     return null;
   }
+  const sourceName = "sourceName" in odds ? odds.sourceName : odds.bookmaker;
+  const updatedAt = "fetchedAt" in odds ? odds.fetchedAt : odds.updatedAt;
 
   return (
     <section className="odds-panel" aria-label="盘口赔率">
       <div className="section-title">
-        <h2>盘口赔率</h2>
-        <span>{odds.updatedAt}</span>
+        <h2>实时赛事数据</h2>
+        <span>{updatedAt}</span>
       </div>
       <div className={odds.locked ? "odds-grid locked" : "odds-grid"}>
         <div>
@@ -355,14 +403,20 @@ function OddsPanel({ match }: { match: WorldCupMatch }) {
         <span>大小 {odds.totalLine}：大 {odds.over} / 小 {odds.under}</span>
       </div>
       <div className="odds-foot">
-        <span>{odds.bookmaker}</span>
-        {odds.locked && (
+        <span>{sourceName}</span>
+        {!marketData && (
+          <button className="inline-unlock" type="button" onClick={onReveal}>
+            查看实时数据
+          </button>
+        )}
+        {(odds.locked || marketError) && (
           <strong>
             <Lock size={13} aria-hidden="true" />
-            付费查看实时
+            {marketError || "付费查看实时"}
           </strong>
         )}
       </div>
+      {marketData && <p className="data-disclaimer">{marketData.disclaimer}</p>}
     </section>
   );
 }
@@ -410,6 +464,50 @@ function ResultRow({ label, children }: { label: string; children: React.ReactNo
 function weekdayLabel(date: string) {
   const day = new Date(`${date}T00:00:00`).getDay();
   return ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][day];
+}
+
+function getVisitorId() {
+  const key = "xuan-oracle-visitor-id";
+  const existing = window.localStorage.getItem(key);
+  if (existing) {
+    return existing;
+  }
+  const created = `visitor-${crypto.randomUUID()}`;
+  window.localStorage.setItem(key, created);
+  return created;
+}
+
+function matchDtoToWorldCupMatch(match: MatchDTO): WorldCupMatch {
+  return {
+    id: match.id,
+    date: match.date,
+    localTime: match.localTime,
+    group: match.group,
+    phase: match.phase,
+    home: match.home,
+    away: match.away,
+    venue: match.venue,
+    city: match.city,
+    country: match.country,
+    source: match.sourceAudit.source_name,
+    lastUpdated: match.lastUpdated,
+    result: match.result,
+    odds: match.odds ? marketSnapshotToOdds(match.odds) : undefined
+  };
+}
+
+function marketSnapshotToOdds(snapshot: MarketSnapshotDTO) {
+  return {
+    home: snapshot.home,
+    draw: snapshot.draw,
+    away: snapshot.away,
+    totalLine: snapshot.totalLine,
+    over: snapshot.over,
+    under: snapshot.under,
+    bookmaker: snapshot.sourceName,
+    updatedAt: snapshot.fetchedAt,
+    locked: snapshot.locked
+  };
 }
 
 export default App;

@@ -641,6 +641,24 @@ p {
   font-size: 12px;
 }
 
+.inline-unlock {
+  min-height: 30px;
+  border: 1px solid rgba(95, 255, 242, 0.5);
+  border-radius: 8px;
+  color: #061115;
+  background: #5ffff2;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.data-disclaimer {
+  margin-top: 10px;
+  color: rgba(232, 241, 255, 0.58);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 .accuracy-list {
   display: grid;
   gap: 7px;
