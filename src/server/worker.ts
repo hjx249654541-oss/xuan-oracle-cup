@@ -1,6 +1,7 @@
 import { buildAccuracy } from "../lib/accuracy";
 import { buildPrediction, predictionMethods, type MethodId } from "../lib/prediction";
 import { resolveAccess, usageDateFromIso } from "./access";
+import { refreshMatchesFromEspn } from "./liveScores";
 import { createDemoMarketSnapshot } from "./marketData";
 import { createRepository } from "./repositories";
 
@@ -22,7 +23,7 @@ const worker = {
     const url = new URL(request.url);
 
     if (request.method === "GET" && url.pathname === "/api/matches") {
-      return json({ matches: repository.listMatches() });
+      return json({ matches: await refreshMatchesFromEspn(repository.listMatches()) });
     }
 
     const oddsMatch = url.pathname.match(/^\/api\/matches\/([^/]+)\/odds$/);
@@ -74,7 +75,8 @@ const worker = {
     }
 
     if (request.method === "GET" && url.pathname === "/api/accuracy") {
-      return json({ accuracy: buildAccuracy(repository.listMatches()) });
+      const matches = await refreshMatchesFromEspn(repository.listMatches());
+      return json({ accuracy: buildAccuracy(matches) });
     }
 
     if (env?.ASSETS && request.method === "GET" && !url.pathname.startsWith("/api/")) {

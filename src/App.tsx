@@ -48,12 +48,9 @@ function App() {
   const [accuracy, setAccuracy] = useState<MethodAccuracy[]>(buildAccuracy(worldCupMatches));
 
   useEffect(() => {
-    loadMatches()
-      .then((items) => setMatches(items.map(matchDtoToWorldCupMatch)))
-      .catch(() => setMatches(worldCupMatches));
-    loadAccuracy()
-      .then(setAccuracy)
-      .catch(() => setAccuracy(buildAccuracy(worldCupMatches)));
+    refreshRemoteData();
+    const intervalId = window.setInterval(refreshRemoteData, 60000);
+    return () => window.clearInterval(intervalId);
   }, []);
 
   useEffect(() => {
@@ -93,9 +90,16 @@ function App() {
   }
 
   function refreshSchedule() {
+    refreshRemoteData();
+  }
+
+  function refreshRemoteData() {
     loadMatches()
       .then((items) => setMatches(items.map(matchDtoToWorldCupMatch)))
       .catch(() => setMatches(worldCupMatches));
+    loadAccuracy()
+      .then(setAccuracy)
+      .catch(() => setAccuracy(buildAccuracy(worldCupMatches)));
   }
 
   async function revealMarketData() {
@@ -182,6 +186,7 @@ function App() {
                   />
                 ))}
               </div>
+              <AccuracyPanel accuracy={accuracy} compact />
             </section>
           )}
 
@@ -421,10 +426,10 @@ function OddsPanel({
   );
 }
 
-function AccuracyPanel({ accuracy }: { accuracy: ReturnType<typeof buildAccuracy> }) {
+function AccuracyPanel({ accuracy, compact = false }: { accuracy: ReturnType<typeof buildAccuracy>; compact?: boolean }) {
   const played = accuracy[0]?.played ?? 0;
   return (
-    <section className="accuracy-panel" aria-label="测算准确率">
+    <section className={compact ? "accuracy-panel compact" : "accuracy-panel"} aria-label="测算准确率">
       <div className="section-title">
         <h2>赛后准确率</h2>
         <span>{played} 场已结算</span>

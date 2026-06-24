@@ -417,6 +417,14 @@ p {
   background: rgba(3, 13, 22, 0.72);
 }
 
+.schedule-panel .accuracy-panel {
+  margin-top: 12px;
+}
+
+.accuracy-panel.compact {
+  padding: 12px;
+}
+
 .section-title,
 .result-heading {
   display: flex;
