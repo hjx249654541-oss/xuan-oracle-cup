@@ -253,7 +253,54 @@ export const worldCupMatches: WorldCupMatch[] = [
   }
 ];
 
+const cityUtcOffsets: Record<string, number> = {
+  休斯敦: -5,
+  波士顿: -4,
+  多伦多: -4,
+  瓜达拉哈拉: -6,
+  亚特兰大: -4,
+  洛杉矶: -7,
+  达拉斯: -5,
+  "纽约/新泽西": -4
+};
+
 export function formatLocalKickoff(match: WorldCupMatch) {
   const [year, month, day] = match.date.split("-");
   return `${month}/${day} ${match.localTime}`;
+}
+
+export function getChinaKickoffDate(match: WorldCupMatch) {
+  return formatChinaParts(match).date;
+}
+
+export function formatChinaKickoff(match: WorldCupMatch) {
+  const { month, day, time } = formatChinaParts(match);
+  return `${month}/${day} ${time}`;
+}
+
+function formatChinaParts(match: WorldCupMatch) {
+  const instant = getVenueInstant(match);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(instant);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return {
+    date: `${values.year}-${values.month}-${values.day}`,
+    month: values.month,
+    day: values.day,
+    time: `${values.hour}:${values.minute}`
+  };
+}
+
+function getVenueInstant(match: WorldCupMatch) {
+  const [year, month, day] = match.date.split("-").map(Number);
+  const [hour, minute] = match.localTime.split(":").map(Number);
+  const utcOffset = cityUtcOffsets[match.city] ?? -5;
+  return new Date(Date.UTC(year, month - 1, day, hour - utcOffset, minute));
 }

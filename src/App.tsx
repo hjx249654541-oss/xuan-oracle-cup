@@ -13,7 +13,7 @@ import {
   TrendingUp,
   Trophy
 } from "lucide-react";
-import { formatLocalKickoff, worldCupMatches, type MatchPhase, type WorldCupMatch } from "./data/schedule";
+import { formatChinaKickoff, formatLocalKickoff, getChinaKickoffDate, worldCupMatches, type MatchPhase, type WorldCupMatch } from "./data/schedule";
 import { buildPrediction, predictionMethods, type MethodId } from "./lib/prediction";
 import { buildAccuracy, type MethodAccuracy } from "./lib/accuracy";
 import { loadAccuracy, loadMarketData, loadMatches, type MarketDataResponse } from "./lib/apiClient";
@@ -36,7 +36,7 @@ const methodIcons: Record<MethodId, string> = {
 function App() {
   const [todayKey, setTodayKey] = useState(getTodayDateKey);
   const [matches, setMatches] = useState<WorldCupMatch[]>(worldCupMatches);
-  const dates = useMemo(() => Array.from(new Set(matches.map((match) => match.date))).sort(), [matches]);
+  const dates = useMemo(() => Array.from(new Set(matches.map(getChinaKickoffDate))).sort(), [matches]);
   const [activeDate, setActiveDate] = useState(() => getDefaultScheduleDate(worldCupMatches, getTodayDateKey()));
   const [dateTouched, setDateTouched] = useState(false);
   const [phase, setPhase] = useState<PhaseFilter>("全部");
@@ -74,7 +74,7 @@ function App() {
 
   const selectedMatch = matches.find((match) => match.id === selectedMatchId) ?? matches[0] ?? worldCupMatches[0];
   const visibleMatches = matches.filter((match) => {
-    const dateMatches = match.date === activeDate;
+    const dateMatches = getChinaKickoffDate(match) === activeDate;
     const phaseMatches = phase === "全部" || match.phase === phase;
     return dateMatches && phaseMatches;
   });
@@ -364,7 +364,7 @@ function SelectedMatch({ match }: { match: WorldCupMatch }) {
         <span>{match.phase} · {match.group}</span>
         <strong>{match.home} vs {match.away}</strong>
       </div>
-      <p>{match.result ? `${match.result.home}-${match.result.away} ${match.result.status === "finished" ? "完场" : match.result.minute ?? "进行中"}` : `${formatLocalKickoff(match)} · ${match.city}`}</p>
+      <p>{match.result ? `${match.result.home}-${match.result.away} ${match.result.status === "finished" ? "完场" : match.result.minute ?? "进行中"}` : `北京时间 ${formatChinaKickoff(match)} · ${match.city}`}</p>
     </section>
   );
 }
@@ -373,7 +373,7 @@ function MatchCard({ match, selected, onSelect }: { match: WorldCupMatch; select
   return (
     <button className={selected ? "match-card selected" : "match-card"} type="button" onClick={onSelect}>
       <div className="match-time">
-        <strong>{match.localTime}</strong>
+        <strong>{formatChinaKickoff(match).slice(6)}</strong>
         <span>{match.phase} · {match.group}</span>
       </div>
       <div className="teams">
@@ -384,7 +384,7 @@ function MatchCard({ match, selected, onSelect }: { match: WorldCupMatch; select
       <div className={match.result?.status === "live" ? "match-status live" : "match-status"}>
         {match.result?.status === "finished" ? "FT" : match.result?.status === "live" ? match.result.minute ?? "LIVE" : selected ? "✓" : "○"}
       </div>
-      <p className="venue-line">{formatLocalKickoff(match)} · {match.city} · {match.venue}</p>
+      <p className="venue-line">北京时间 {formatChinaKickoff(match)} · 当地 {formatLocalKickoff(match)} · {match.city} · {match.venue}</p>
       {match.result && <p className="result-source">{match.result.status === "finished" ? "赛果" : "实时比分"}：{match.result.source}</p>}
     </button>
   );
@@ -549,12 +549,12 @@ function getTodayDateKey() {
 }
 
 function getDefaultScheduleDate(matches: WorldCupMatch[], todayKey: string) {
-  const dates = Array.from(new Set(matches.map((match) => match.date))).sort();
+  const dates = Array.from(new Set(matches.map(getChinaKickoffDate))).sort();
   return dates.find((date) => date === todayKey) ?? dates.find((date) => date > todayKey) ?? dates.at(-1) ?? todayKey;
 }
 
 function getDefaultSelectedMatchId(matches: WorldCupMatch[], dateKey: string) {
-  return matches.find((match) => match.date === dateKey)?.id ?? matches[0]?.id ?? worldCupMatches[0].id;
+  return matches.find((match) => getChinaKickoffDate(match) === dateKey)?.id ?? matches[0]?.id ?? worldCupMatches[0].id;
 }
 
 export default App;
