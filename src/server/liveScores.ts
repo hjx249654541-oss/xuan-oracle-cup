@@ -8,6 +8,8 @@ type EspnEvent = {
     status?: {
       type?: {
         completed?: boolean;
+        state?: string;
+        detail?: string;
         shortDetail?: string;
       };
     };
@@ -49,7 +51,8 @@ export async function refreshMatchesFromEspn(matches: MatchDTO[], fetcher: Score
   return matches.map((match) => {
     const event = events.find((candidate) => eventMatches(candidate, match));
     const competition = event?.competitions?.[0];
-    if (!event || !competition?.status?.type?.completed) {
+    const statusType = competition?.status?.type;
+    if (!event || !statusType || statusType.state === "pre") {
       return match;
     }
 
@@ -67,9 +70,9 @@ export async function refreshMatchesFromEspn(matches: MatchDTO[], fetcher: Score
       result: {
         home: homeScore,
         away: awayScore,
-        status: "finished",
-        minute: competition.status.type.shortDetail,
-        source: `ESPN scoreboard API · gameId ${event.id ?? "unknown"}`
+        status: statusType.completed ? "finished" : "live",
+        minute: statusType.shortDetail ?? statusType.detail,
+        source: `${statusType.completed ? "ESPN scoreboard API" : "ESPN live scoreboard"} · gameId ${event.id ?? "unknown"}`
       },
       sourceAudit: {
         source_name: `${match.sourceAudit.source_name} / ESPN scoreboard`,

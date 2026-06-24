@@ -173,6 +173,8 @@ function App() {
                 <ChevronRight size={22} aria-hidden="true" />
               </div>
 
+              <AccuracyPanel accuracy={accuracy} compact />
+
               <div className="match-list">
                 {(visibleMatches.length > 0 ? visibleMatches : matches.slice(0, 3)).map((match) => (
                   <MatchCard
@@ -186,7 +188,6 @@ function App() {
                   />
                 ))}
               </div>
-              <AccuracyPanel accuracy={accuracy} compact />
             </section>
           )}
 
@@ -341,7 +342,7 @@ function SelectedMatch({ match }: { match: WorldCupMatch }) {
         <span>{match.phase} · {match.group}</span>
         <strong>{match.home} vs {match.away}</strong>
       </div>
-      <p>{match.result?.status === "finished" ? `${match.result.home}-${match.result.away} 完场` : `${formatLocalKickoff(match)} · ${match.city}`}</p>
+      <p>{match.result ? `${match.result.home}-${match.result.away} ${match.result.status === "finished" ? "完场" : match.result.minute ?? "进行中"}` : `${formatLocalKickoff(match)} · ${match.city}`}</p>
     </section>
   );
 }
@@ -358,9 +359,11 @@ function MatchCard({ match, selected, onSelect }: { match: WorldCupMatch; select
         <span className={match.result ? "versus score-live" : "versus"}>{match.result ? `${match.result.home}-${match.result.away}` : "VS"}</span>
         <TeamBadge name={match.away} />
       </div>
-      <div className="match-status">{match.result?.status === "finished" ? "FT" : selected ? "✓" : "○"}</div>
+      <div className={match.result?.status === "live" ? "match-status live" : "match-status"}>
+        {match.result?.status === "finished" ? "FT" : match.result?.status === "live" ? match.result.minute ?? "LIVE" : selected ? "✓" : "○"}
+      </div>
       <p className="venue-line">{formatLocalKickoff(match)} · {match.city} · {match.venue}</p>
-      {match.result && <p className="result-source">赛果：{match.result.source}</p>}
+      {match.result && <p className="result-source">{match.result.status === "finished" ? "赛果" : "实时比分"}：{match.result.source}</p>}
     </button>
   );
 }

@@ -160,7 +160,7 @@ p {
   height: calc(100vh - 154px - env(safe-area-inset-top));
   max-height: 806px;
   overflow-y: auto;
-  padding: 12px 14px 112px;
+  padding: 12px 14px calc(156px + env(safe-area-inset-bottom));
   scrollbar-width: none;
 }
 
@@ -418,11 +418,32 @@ p {
 }
 
 .schedule-panel .accuracy-panel {
-  margin-top: 12px;
+  margin: 0 0 12px;
 }
 
 .accuracy-panel.compact {
   padding: 12px;
+}
+
+.accuracy-panel.compact .section-title {
+  margin-bottom: 9px;
+}
+
+.accuracy-panel.compact .accuracy-list {
+  max-height: 136px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.accuracy-panel.compact .accuracy-row {
+  grid-template-columns: 44px repeat(3, minmax(0, 1fr));
+  min-height: 34px;
+  padding: 7px;
+}
+
+.accuracy-panel.compact .accuracy-row span {
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .section-title,
