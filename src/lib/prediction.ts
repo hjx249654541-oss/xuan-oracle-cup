@@ -12,6 +12,14 @@ export type PredictionMethod = {
   subtitle: string;
 };
 
+export type MethodAudit = {
+  methodId: MethodId;
+  engine: string;
+  inputs: string[];
+  determinism: string;
+  verification: string;
+};
+
 export type MethodReading = {
   methodId: MethodId;
   title: string;
@@ -86,6 +94,62 @@ export const predictionMethods: PredictionMethod[] = [
     subtitle: "实力战绩 · 概率模型"
   }
 ];
+
+const methodAuditTrail: Record<MethodId, MethodAudit> = {
+  tarot: {
+    methodId: "tarot",
+    engine: "内置78张塔罗牌库 + Fisher-Yates 洗牌",
+    inputs: ["比赛ID", "主客队", "场馆", "开球时间", "固定计算种子"],
+    determinism: "同一场比赛、同一方法组合使用固定 seed，所有用户结果一致。",
+    verification: "过程面板会显示洗牌种子、三牌牌阵、正逆位和元素权重。"
+  },
+  liuren: {
+    methodId: "liuren",
+    engine: "solarlunar 农历换算 + 小六壬月日时起课",
+    inputs: ["公历比赛日", "农历月日", "开球时辰", "大安/留连/速喜等六宫"],
+    determinism: "以比赛时间换算农历与时辰，固定映射到三宫落点，不使用随机数。",
+    verification: "过程面板会显示农历日期、干支四柱、月日时起课和六神判词。"
+  },
+  astro: {
+    methodId: "astro",
+    engine: "astronomy-engine 赛时星历 + 占星骰子三要素",
+    inputs: ["比赛当地时间折算UTC", "太阳黄经", "月亮黄经", "主要相位", "行星/星座/宫位"],
+    determinism: "星历由确定时间计算，骰子落点由固定 seed 取数，所有用户一致。",
+    verification: "过程面板会显示赛时星历、太阳/月亮黄经、主要相位和三骰结果。"
+  },
+  meihua: {
+    methodId: "meihua",
+    engine: "solarlunar 农历数据 + 周易64卦体用生克",
+    inputs: ["农历年月日时", "上下卦", "动爻", "互卦/变卦", "五行生克"],
+    determinism: "以比赛时间起数成卦，卦序和动爻固定，不使用随机数。",
+    verification: "过程面板会显示本互变卦、卦序卦名、体用五行和生克关系。"
+  },
+  qimen: {
+    methodId: "qimen",
+    engine: "qimen-dunjia 排盘 + 九宫门星神评分",
+    inputs: ["比赛日期时间", "节气三元", "阴阳遁局", "值符值使", "门星宫"],
+    determinism: "奇门局由时间排盘生成，门星神评分固定，所有用户一致。",
+    verification: "过程面板会显示拆补法定局、旬首符首、天盘地盘和三奇六仪。"
+  },
+  oracle: {
+    methodId: "oracle",
+    engine: "签诗卦象库 + 固定签号映射",
+    inputs: ["比赛ID", "主客队", "场馆", "签号", "签意权重"],
+    determinism: "签号由固定 seed 计算，同一场比赛不会因刷新变化。",
+    verification: "过程面板会显示签号、签诗、卦象和解签方向。"
+  },
+  ai: {
+    methodId: "ai",
+    engine: "内置球队实力评级 + 形态/盘口/平局阈值模型",
+    inputs: ["球队实力分", "近五场形态模拟", "主客优势", "盘口倾向", "平局阈值"],
+    determinism: "模型输入和校准权重固定，预测不随用户或刷新随机变化。",
+    verification: "过程面板会显示模型类型、实力评级、近五场形态和盘口倾向。"
+  }
+};
+
+export function getMethodAuditTrail(methodIds: MethodId[]) {
+  return methodIds.map((methodId) => methodAuditTrail[methodId]);
+}
 
 const majorArcana = ["愚者", "魔术师", "女祭司", "皇后", "皇帝", "教皇", "恋人", "战车", "力量", "隐者", "命运之轮", "正义", "倒吊人", "死神", "节制", "恶魔", "高塔", "星星", "月亮", "太阳", "审判", "世界"];
 const minorRanks = ["Ace", "2", "3", "4", "5", "6", "7", "8", "9", "10", "侍从", "骑士", "王后", "国王"];

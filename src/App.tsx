@@ -14,7 +14,7 @@ import {
   Trophy
 } from "lucide-react";
 import { formatChinaKickoff, formatLocalKickoff, getChinaKickoffDate, worldCupMatches, type MatchPhase, type WorldCupMatch } from "./data/schedule";
-import { buildPrediction, predictionMethods, type MethodId } from "./lib/prediction";
+import { buildPrediction, getMethodAuditTrail, predictionMethods, type MethodAudit, type MethodId } from "./lib/prediction";
 import { buildAccuracy, type MethodAccuracy } from "./lib/accuracy";
 import { loadAccuracy, loadMarketData, loadMatches, type MarketDataResponse } from "./lib/apiClient";
 import { getPrimaryActionLabel } from "./lib/uiCopy";
@@ -299,6 +299,8 @@ function App() {
                 </div>
               </section>
 
+              <AlgorithmAuditPanel items={getMethodAuditTrail(enabledMethods)} />
+
               <section className="reading-list" aria-label="测算明细">
                 {prediction.readings.map((reading) => {
                   const isOpen = openReadingId === reading.methodId;
@@ -488,6 +490,30 @@ function ResultRow({ label, children }: { label: string; children: React.ReactNo
       <span className="row-label">{label}</span>
       <div className="row-value">{children}</div>
     </div>
+  );
+}
+
+function AlgorithmAuditPanel({ items }: { items: MethodAudit[] }) {
+  return (
+    <section className="audit-panel" aria-label="算法审计">
+      <div className="section-title">
+        <h2>算法审计</h2>
+        <span>固定输入 · 可复核</span>
+      </div>
+      <div className="audit-list">
+        {items.map((item) => {
+          const method = predictionMethods.find((entry) => entry.id === item.methodId);
+          return (
+            <article className="audit-item" key={item.methodId}>
+              <strong>{method?.shortName ?? item.methodId}</strong>
+              <p>{item.engine}</p>
+              <span>{item.determinism}</span>
+              <code>{item.inputs.join(" / ")}</code>
+            </article>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

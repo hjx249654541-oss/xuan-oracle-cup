@@ -407,12 +407,14 @@ p {
 .method-panel,
 .result-panel,
 .odds-panel,
-.accuracy-panel {
+.accuracy-panel,
+.audit-panel {
   padding: 14px;
 }
 
 .odds-panel,
-.accuracy-panel {
+.accuracy-panel,
+.audit-panel {
   margin-top: 12px;
   border: 1px solid rgba(91, 255, 243, 0.22);
   border-radius: 8px;
@@ -710,6 +712,39 @@ p {
 .accuracy-row strong {
   color: #5ffff2;
   font-size: 13px;
+}
+
+.audit-list {
+  display: grid;
+  gap: 8px;
+}
+
+.audit-item {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid rgba(229, 241, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(6, 17, 28, 0.72);
+}
+
+.audit-item strong {
+  color: #5ffff2;
+  font-size: 14px;
+}
+
+.audit-item p,
+.audit-item span {
+  color: rgba(232, 241, 255, 0.68);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.audit-item code {
+  color: #ffd36f;
+  white-space: normal;
+  word-break: break-word;
+  font-size: 11px;
 }
 
 .reading-list {

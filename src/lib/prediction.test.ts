@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { worldCupMatches } from "../data/schedule";
 import { buildAccuracy } from "./accuracy";
-import { buildPrediction, predictionMethods, type MethodId } from "./prediction";
+import { buildPrediction, getMethodAuditTrail, predictionMethods, type MethodId } from "./prediction";
 
 describe("buildPrediction", () => {
   it("returns stable predictions for the same match and methods", () => {
@@ -171,6 +171,20 @@ describe("buildPrediction", () => {
       expect(item.winnerRate).toBeGreaterThanOrEqual(0);
       expect(item.scoreRate).toBeGreaterThanOrEqual(0);
       expect(item.totalGoalsRate).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("exposes an audit trail proving methods use deterministic professional inputs", () => {
+    const auditTrail = getMethodAuditTrail(["tarot", "liuren", "astro", "qimen", "ai"]);
+
+    expect(auditTrail).toHaveLength(5);
+    expect(auditTrail.map((item) => item.methodId)).toEqual(["tarot", "liuren", "astro", "qimen", "ai"]);
+    expect(auditTrail.find((item) => item.methodId === "astro")?.engine).toContain("astronomy-engine");
+    expect(auditTrail.find((item) => item.methodId === "qimen")?.engine).toContain("qimen-dunjia");
+    expect(auditTrail.find((item) => item.methodId === "liuren")?.engine).toContain("solarlunar");
+    for (const item of auditTrail) {
+      expect(item.determinism).toContain("固定");
+      expect(item.inputs.length).toBeGreaterThanOrEqual(3);
     }
   });
 });
