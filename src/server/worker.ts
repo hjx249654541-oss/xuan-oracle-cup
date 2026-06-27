@@ -7,6 +7,10 @@ import { createRepository } from "./repositories";
 
 type Env = {
   DB?: unknown;
+  MARKET_CACHE?: {
+    get(key: string): Promise<string | null>;
+    put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
+  };
   ASSETS?: {
     fetch(request: Request): Promise<Response>;
   };
@@ -17,13 +21,17 @@ const jsonHeaders = {
   "cache-control": "no-store"
 };
 
+const matchCacheKey = "scoreboard:matches:v3";
+const matchCacheTtlSeconds = 30;
+const edgeCacheSeconds = 30;
+
 const worker = {
   async fetch(request: Request, env?: Env): Promise<Response> {
     const repository = createRepository(env?.DB);
     const url = new URL(request.url);
 
     if (request.method === "GET" && url.pathname === "/api/matches") {
-      return json({ matches: await refreshMatchesFromEspn(repository.listMatches()) });
+      return cachedJson(request, url, async () => ({ matches: await listMatchesWithLiveScores(repository, env) }));
     }
 
     const oddsMatch = url.pathname.match(/^\/api\/matches\/([^/]+)\/odds$/);
@@ -75,8 +83,10 @@ const worker = {
     }
 
     if (request.method === "GET" && url.pathname === "/api/accuracy") {
-      const matches = await refreshMatchesFromEspn(repository.listMatches());
-      return json({ accuracy: buildAccuracy(matches) });
+      return cachedJson(request, url, async () => {
+        const matches = await listMatchesWithLiveScores(repository, env);
+        return { accuracy: buildAccuracy(matches) };
+      });
     }
 
     if (env?.ASSETS && request.method === "GET" && !url.pathname.startsWith("/api/")) {
@@ -87,14 +97,44 @@ const worker = {
   }
 };
 
+async function listMatchesWithLiveScores(repository: ReturnType<typeof createRepository>, env?: Env) {
+  const cached = await env?.MARKET_CACHE?.get(matchCacheKey).catch(() => null);
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch {
+      // Ignore malformed edge cache and rebuild below.
+    }
+  }
+
+  const matches = await refreshMatchesFromEspn(repository.listMatches());
+  await env?.MARKET_CACHE?.put(matchCacheKey, JSON.stringify(matches), { expirationTtl: matchCacheTtlSeconds }).catch(() => undefined);
+  return matches;
+}
+
+async function cachedJson(request: Request, url: URL, buildBody: () => Promise<unknown>) {
+  const edgeCache = typeof caches !== "undefined" ? caches.default : null;
+  const cacheKey = new Request(`${url.origin}${url.pathname}`, request);
+  const cached = await edgeCache?.match(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const response = json(await buildBody(), 200, {
+    "cache-control": `public, max-age=${edgeCacheSeconds}`
+  });
+  await edgeCache?.put(cacheKey, response.clone()).catch(() => undefined);
+  return response;
+}
+
 function parseMethods(value: string | null): MethodId[] {
   const allowed = new Set(predictionMethods.map((method) => method.id));
   const parsed = (value ?? "").split(",").filter((item): item is MethodId => allowed.has(item as MethodId));
   return parsed.length > 0 ? parsed.slice(0, 3) : ["ai", "qimen", "tarot"];
 }
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: jsonHeaders });
+function json(body: unknown, status = 200, headers?: Record<string, string>) {
+  return new Response(JSON.stringify(body), { status, headers: { ...jsonHeaders, ...headers } });
 }
 
 export default worker;

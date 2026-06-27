@@ -11,6 +11,33 @@ describe("worker API", () => {
     expect(body.matches[0].sourceAudit.source_name.length).toBeGreaterThan(0);
   });
 
+  it("serves matches from edge cache when available", async () => {
+    const cachedMatch = {
+      id: "cached-match",
+      date: "2026-06-27",
+      localTime: "12:00",
+      group: "缓存",
+      phase: "小组赛",
+      home: "缓存主队",
+      away: "缓存客队",
+      venue: "Cache Stadium",
+      city: "缓存城",
+      country: "缓存国",
+      lastUpdated: "2026-06-27",
+      sourceAudit: { source_name: "edge-cache" }
+    };
+    const response = await worker.fetch(new Request("https://example.com/api/matches"), {
+      MARKET_CACHE: {
+        get: async () => JSON.stringify([cachedMatch]),
+        put: async () => undefined
+      }
+    });
+    const body = (await response.json()) as { matches: Array<{ id: string; sourceAudit: { source_name: string } }> };
+
+    expect(response.status).toBe(200);
+    expect(body.matches).toEqual([cachedMatch]);
+  });
+
   it("returns one free market-data view and then locks the second view", async () => {
     const first = await worker.fetch(
       new Request("https://example.com/api/matches/2026-06-23-por-uzb/odds", {

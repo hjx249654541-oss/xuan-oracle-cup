@@ -1,6 +1,6 @@
 import type { MatchDTO } from "./types";
 
-type ScoreboardFetcher = (input: string) => Promise<Response>;
+type ScoreboardFetcher = (input: string, init?: RequestInit) => Promise<Response>;
 
 type EspnEvent = {
   id?: string;
@@ -25,6 +25,15 @@ type EspnEvent = {
   }>;
 };
 
+type EventCacheEntry = {
+  expiresAt: number;
+  promise: Promise<EspnEvent[]>;
+};
+
+const liveScoreCache = new Map<string, EventCacheEntry>();
+const liveScoreCacheTtlMs = 30_000;
+const liveScoreFetchTimeoutMs = 1_200;
+
 const teamAliases: Record<string, string[]> = {
   葡萄牙: ["Portugal", "POR"],
   乌兹别克斯坦: ["Uzbekistan", "UZB"],
@@ -46,7 +55,7 @@ const teamAliases: Record<string, string[]> = {
 
 export async function refreshMatchesFromEspn(matches: MatchDTO[], fetcher: ScoreboardFetcher = fetch): Promise<MatchDTO[]> {
   const byDate = Array.from(new Set(matches.map((match) => match.date)));
-  const events = (await Promise.all(byDate.map((date) => fetchEspnDate(date, fetcher)))).flat();
+  const events = (await Promise.all(byDate.map((date) => fetchCachedEspnDate(date, fetcher)))).flat();
 
   return matches.map((match) => {
     const event = events.find((candidate) => eventMatches(candidate, match));
@@ -87,10 +96,30 @@ export async function refreshMatchesFromEspn(matches: MatchDTO[], fetcher: Score
   });
 }
 
+function fetchCachedEspnDate(date: string, fetcher: ScoreboardFetcher) {
+  if (fetcher !== fetch) {
+    return fetchEspnDate(date, fetcher);
+  }
+
+  const now = Date.now();
+  const cached = liveScoreCache.get(date);
+  if (cached && cached.expiresAt > now) {
+    return cached.promise;
+  }
+
+  const promise = fetchEspnDate(date, fetcher);
+  liveScoreCache.set(date, { expiresAt: now + liveScoreCacheTtlMs, promise });
+  return promise;
+}
+
 async function fetchEspnDate(date: string, fetcher: ScoreboardFetcher) {
   const compact = date.replaceAll("-", "");
   try {
-    const response = await fetcher(`https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=${compact}`);
+    const response = await fetchWithTimeout(
+      fetcher,
+      `https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=${compact}`,
+      liveScoreFetchTimeoutMs
+    );
     if (!response.ok) {
       return [];
     }
@@ -99,6 +128,13 @@ async function fetchEspnDate(date: string, fetcher: ScoreboardFetcher) {
   } catch {
     return [];
   }
+}
+
+async function fetchWithTimeout(fetcher: ScoreboardFetcher, url: string, timeoutMs: number) {
+  const timeoutResponse = new Promise<Response>((resolve) => {
+    setTimeout(() => resolve(new Response(null, { status: 504 })), timeoutMs);
+  });
+  return Promise.race([fetcher(url), timeoutResponse]);
 }
 
 function eventMatches(event: EspnEvent, match: MatchDTO) {

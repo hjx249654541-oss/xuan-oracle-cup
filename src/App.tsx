@@ -197,6 +197,8 @@ function App() {
 
               <AccuracyPanel accuracy={accuracy} compact />
 
+              <OddsPanel match={selectedMatch} marketData={marketData} marketError={marketError} onReveal={revealMarketData} />
+
               <div className="match-list">
                 {(visibleMatches.length > 0 ? visibleMatches : matches.slice(0, 3)).map((match) => (
                   <MatchCard
@@ -205,7 +207,6 @@ function App() {
                     selected={match.id === selectedMatch.id}
                     onSelect={() => {
                       setSelectedMatchId(match.id);
-                      setTab("测算");
                     }}
                   />
                 ))}
@@ -403,17 +404,42 @@ function OddsPanel({
   marketError: string;
   onReveal: () => void;
 }) {
-  const odds = marketData?.market ?? match.odds;
+  const activeMarketData = marketData?.market.matchId === match.id ? marketData : null;
+  const odds = activeMarketData?.market ?? match.odds;
+  const sourceName = odds ? ("sourceName" in odds ? odds.sourceName : odds.bookmaker) : "待接实时源";
+  const updatedAt = odds ? ("fetchedAt" in odds ? odds.fetchedAt : odds.updatedAt) : "未解锁";
+
   if (!odds) {
-    return null;
+    return (
+      <section className="odds-panel" aria-label="盘口赔率">
+        <div className="section-title">
+          <h2>实时盘口</h2>
+          <span>{updatedAt}</span>
+        </div>
+        <div className="odds-empty">
+          <strong>{match.home} vs {match.away}</strong>
+          <span>暂无赛前快照，可查看实时数据源返回。</span>
+        </div>
+        <div className="odds-foot">
+          <span>{sourceName}</span>
+          <button className="inline-unlock" type="button" onClick={onReveal}>
+            查看实时数据
+          </button>
+          {marketError && (
+            <strong>
+              <Lock size={13} aria-hidden="true" />
+              {marketError}
+            </strong>
+          )}
+        </div>
+      </section>
+    );
   }
-  const sourceName = "sourceName" in odds ? odds.sourceName : odds.bookmaker;
-  const updatedAt = "fetchedAt" in odds ? odds.fetchedAt : odds.updatedAt;
 
   return (
     <section className="odds-panel" aria-label="盘口赔率">
       <div className="section-title">
-        <h2>实时赛事数据</h2>
+        <h2>实时盘口</h2>
         <span>{updatedAt}</span>
       </div>
       <div className={odds.locked ? "odds-grid locked" : "odds-grid"}>
@@ -436,7 +462,7 @@ function OddsPanel({
       </div>
       <div className="odds-foot">
         <span>{sourceName}</span>
-        {!marketData && (
+        {!activeMarketData && (
           <button className="inline-unlock" type="button" onClick={onReveal}>
             查看实时数据
           </button>
@@ -448,7 +474,7 @@ function OddsPanel({
           </strong>
         )}
       </div>
-      {marketData && <p className="data-disclaimer">{marketData.disclaimer}</p>}
+      {activeMarketData && <p className="data-disclaimer">{activeMarketData.disclaimer}</p>}
     </section>
   );
 }

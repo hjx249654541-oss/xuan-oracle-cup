@@ -86,4 +86,14 @@ describe("refreshMatchesFromEspn", () => {
     expect(japan?.result?.source).toContain("ESPN live scoreboard");
     expect(morocco?.result).toBeUndefined();
   });
+
+  it("falls back to seeded matches when ESPN is too slow", async () => {
+    const fetcher = () => new Promise<Response>(() => {});
+    const startedAt = Date.now();
+
+    const matches = await refreshMatchesFromEspn(seedMatches(), fetcher);
+
+    expect(Date.now() - startedAt).toBeLessThan(1600);
+    expect(matches.find((match) => match.id === "2026-06-24-mar-hai")?.result).toBeUndefined();
+  });
 });
