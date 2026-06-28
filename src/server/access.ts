@@ -2,6 +2,7 @@ export type AccessInput = {
   currentViews: number;
   hasActiveEntitlement: boolean;
   nowIso: string;
+  freeViewLimit?: number;
 };
 
 export type AccessDecision = {
@@ -15,7 +16,7 @@ export function resolveAccess(input: AccessInput): AccessDecision {
     return { allowed: true, shouldIncrementUsage: false, reason: "active-pro" };
   }
 
-  if (input.currentViews < 1) {
+  if (input.currentViews < (input.freeViewLimit ?? 1)) {
     return { allowed: true, shouldIncrementUsage: true, reason: "free-daily-view" };
   }
 

@@ -408,6 +408,8 @@ function OddsPanel({
   const odds = activeMarketData?.market ?? match.odds;
   const sourceName = odds ? ("sourceName" in odds ? odds.sourceName : odds.bookmaker) : "待接实时源";
   const updatedAt = odds ? ("fetchedAt" in odds ? odds.fetchedAt : odds.updatedAt) : "未解锁";
+  const provider = odds && "provider" in odds ? odds.provider : match.odds?.provider;
+  const dataType = marketDataType(provider, odds?.locked);
 
   if (!odds) {
     return (
@@ -432,6 +434,7 @@ function OddsPanel({
             </strong>
           )}
         </div>
+        <p className="data-source-line">数据类型：待接实时源 · 数据来源：{sourceName}</p>
       </section>
     );
   }
@@ -474,6 +477,7 @@ function OddsPanel({
           </strong>
         )}
       </div>
+      <p className="data-source-line">数据类型：{dataType} · 数据来源：{sourceName}</p>
       {activeMarketData && <p className="data-disclaimer">{activeMarketData.disclaimer}</p>}
     </section>
   );
@@ -588,8 +592,23 @@ function marketSnapshotToOdds(snapshot: MarketSnapshotDTO) {
     under: snapshot.under,
     bookmaker: snapshot.sourceName,
     updatedAt: snapshot.fetchedAt,
-    locked: snapshot.locked
+    locked: snapshot.locked,
+    provider: snapshot.provider,
+    sourceUrl: snapshot.sourceUrl
   };
+}
+
+function marketDataType(provider: string | undefined, locked: boolean | undefined) {
+  if (provider === "the-odds-api") {
+    return "实时API";
+  }
+  if (provider === "manual-snapshot") {
+    return "赛前快照";
+  }
+  if (provider === "demo-market-data" || locked) {
+    return "演示/待接实时源";
+  }
+  return "待确认";
 }
 
 function getTodayDateKey() {

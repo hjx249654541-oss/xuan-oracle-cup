@@ -38,7 +38,7 @@ describe("worker API", () => {
     expect(body.matches).toEqual([cachedMatch]);
   });
 
-  it("returns one free market-data view and then locks the second view", async () => {
+  it("allows two free market-data views per match and then locks the third view", async () => {
     const first = await worker.fetch(
       new Request("https://example.com/api/matches/2026-06-23-por-uzb/odds", {
         headers: { "x-visitor-id": "visitor-a" }
@@ -49,12 +49,24 @@ describe("worker API", () => {
         headers: { "x-visitor-id": "visitor-a" }
       })
     );
+    const third = await worker.fetch(
+      new Request("https://example.com/api/matches/2026-06-23-por-uzb/odds", {
+        headers: { "x-visitor-id": "visitor-a" }
+      })
+    );
+    const otherMatch = await worker.fetch(
+      new Request("https://example.com/api/matches/2026-06-23-eng-gha/odds", {
+        headers: { "x-visitor-id": "visitor-a" }
+      })
+    );
 
     expect(first.status).toBe(200);
-    expect(second.status).toBe(402);
-    expect(await second.json()).toEqual({
+    expect(second.status).toBe(200);
+    expect(third.status).toBe(402);
+    expect(otherMatch.status).toBe(200);
+    expect(await third.json()).toEqual({
       error: "pro-required",
-      message: "今日免费次数已用完，开通赛事数据 Pro 后可继续查看实时数据、赔率变化和市场热度。"
+      message: "本场免费查看次数已用完，开通赛事数据 Pro 后可继续查看实时数据、赔率变化和市场热度。"
     });
   });
 

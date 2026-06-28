@@ -19,6 +19,8 @@ export type OddsSnapshot = {
   bookmaker: string;
   updatedAt: string;
   locked: boolean;
+  provider?: string;
+  sourceUrl?: string;
 };
 
 export type WorldCupMatch = {
@@ -67,7 +69,8 @@ export const worldCupMatches: WorldCupMatch[] = [
       under: "-148",
       bookmaker: "Oddschecker / Action Network snapshot",
       updatedAt: "赛前快照 2026-06-23",
-      locked: false
+      locked: false,
+      provider: "manual-snapshot"
     }
   },
   {
@@ -92,7 +95,8 @@ export const worldCupMatches: WorldCupMatch[] = [
       under: "-115",
       bookmaker: "盘口模块演示",
       updatedAt: "待接实时源",
-      locked: true
+      locked: true,
+      provider: "demo-market-data"
     }
   },
   {
@@ -117,7 +121,8 @@ export const worldCupMatches: WorldCupMatch[] = [
       under: "-120",
       bookmaker: "盘口模块演示",
       updatedAt: "待接实时源",
-      locked: true
+      locked: true,
+      provider: "demo-market-data"
     }
   },
   {
@@ -142,7 +147,8 @@ export const worldCupMatches: WorldCupMatch[] = [
       under: "-125",
       bookmaker: "盘口模块演示",
       updatedAt: "待接实时源",
-      locked: true
+      locked: true,
+      provider: "demo-market-data"
     }
   },
   {
@@ -167,7 +173,8 @@ export const worldCupMatches: WorldCupMatch[] = [
       under: "+110",
       bookmaker: "盘口模块演示",
       updatedAt: "待接实时源",
-      locked: true
+      locked: true,
+      provider: "demo-market-data"
     }
   },
   {
@@ -192,7 +199,8 @@ export const worldCupMatches: WorldCupMatch[] = [
       under: "-120",
       bookmaker: "盘口模块演示",
       updatedAt: "待接实时源",
-      locked: true
+      locked: true,
+      provider: "demo-market-data"
     }
   },
   {

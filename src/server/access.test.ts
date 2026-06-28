@@ -30,6 +30,25 @@ describe("resolveAccess", () => {
     });
   });
 
+  it("supports a configurable two-view free limit", () => {
+    expect(
+      resolveAccess({
+        currentViews: 1,
+        hasActiveEntitlement: false,
+        nowIso: "2026-06-24T12:00:00.000Z",
+        freeViewLimit: 2
+      }).allowed
+    ).toBe(true);
+    expect(
+      resolveAccess({
+        currentViews: 2,
+        hasActiveEntitlement: false,
+        nowIso: "2026-06-24T12:00:00.000Z",
+        freeViewLimit: 2
+      }).allowed
+    ).toBe(false);
+  });
+
   it("allows active Pro users without consuming free usage", () => {
     expect(
       resolveAccess({

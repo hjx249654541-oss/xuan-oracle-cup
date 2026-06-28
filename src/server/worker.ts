@@ -2,11 +2,13 @@ import { buildAccuracy } from "../lib/accuracy";
 import { buildPrediction, predictionMethods, type MethodId } from "../lib/prediction";
 import { resolveAccess, usageDateFromIso } from "./access";
 import { refreshMatchesFromEspn } from "./liveScores";
-import { createDemoMarketSnapshot } from "./marketData";
+import { createDemoMarketSnapshot, fetchTheOddsApiMarketSnapshot } from "./marketData";
 import { createRepository } from "./repositories";
+import type { MarketSnapshotDTO, MatchDTO } from "./types";
 
 type Env = {
   DB?: unknown;
+  THE_ODDS_API_KEY?: string;
   MARKET_CACHE?: {
     get(key: string): Promise<string | null>;
     put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
@@ -24,6 +26,8 @@ const jsonHeaders = {
 const matchCacheKey = "scoreboard:matches:v3";
 const matchCacheTtlSeconds = 30;
 const edgeCacheSeconds = 30;
+const marketCacheTtlSeconds = 300;
+const freeViewsPerMatch = 2;
 
 const worker = {
   async fetch(request: Request, env?: Env): Promise<Response> {
@@ -43,31 +47,34 @@ const worker = {
       }
 
       const visitorId = request.headers.get("x-visitor-id") || "anonymous";
-      const nowIso = new Date("2026-06-24T12:00:00.000Z").toISOString();
+      const usageVisitorId = `${visitorId}:match:${matchId}`;
+      const nowIso = new Date().toISOString();
       const usageDate = usageDateFromIso(nowIso);
       const decision = resolveAccess({
-        currentViews: repository.getUsage(visitorId, usageDate),
-        hasActiveEntitlement: repository.hasActiveEntitlement(visitorId, nowIso),
-        nowIso
+        currentViews: await repository.getUsage(usageVisitorId, usageDate),
+        hasActiveEntitlement: await repository.hasActiveEntitlement(visitorId, nowIso),
+        nowIso,
+        freeViewLimit: freeViewsPerMatch
       });
 
       if (!decision.allowed) {
         return json(
           {
             error: "pro-required",
-            message: "今日免费次数已用完，开通赛事数据 Pro 后可继续查看实时数据、赔率变化和市场热度。"
+            message: "本场免费查看次数已用完，开通赛事数据 Pro 后可继续查看实时数据、赔率变化和市场热度。"
           },
           402
         );
       }
 
       if (decision.shouldIncrementUsage) {
-        repository.incrementUsage(visitorId, usageDate);
+        await repository.incrementUsage(usageVisitorId, usageDate);
       }
 
+      const market = await resolveMarketSnapshot(match, nowIso, env);
       return json({
         access: decision.reason,
-        market: match.odds ?? createDemoMarketSnapshot(matchId, nowIso),
+        market,
         disclaimer: "本站仅提供体育赛事数据、赔率变化展示与娱乐分析，不提供下注、代投、返奖、奖金池或博彩服务，不构成投注、投资或财务建议。请遵守所在地法律法规。"
       });
     }
@@ -110,6 +117,28 @@ async function listMatchesWithLiveScores(repository: ReturnType<typeof createRep
   const matches = await refreshMatchesFromEspn(repository.listMatches());
   await env?.MARKET_CACHE?.put(matchCacheKey, JSON.stringify(matches), { expirationTtl: matchCacheTtlSeconds }).catch(() => undefined);
   return matches;
+}
+
+async function resolveMarketSnapshot(match: MatchDTO, nowIso: string, env?: Env): Promise<MarketSnapshotDTO> {
+  const cacheKey = `market:${match.id}:the-odds-api:v1`;
+  const cached = await env?.MARKET_CACHE?.get(cacheKey).catch(() => null);
+  if (cached) {
+    try {
+      return JSON.parse(cached) as MarketSnapshotDTO;
+    } catch {
+      // Ignore malformed market cache and rebuild below.
+    }
+  }
+
+  const liveMarket = env?.THE_ODDS_API_KEY
+    ? await fetchTheOddsApiMarketSnapshot(match, env.THE_ODDS_API_KEY, nowIso).catch(() => undefined)
+    : undefined;
+  if (liveMarket) {
+    await env?.MARKET_CACHE?.put(cacheKey, JSON.stringify(liveMarket), { expirationTtl: marketCacheTtlSeconds }).catch(() => undefined);
+    return liveMarket;
+  }
+
+  return match.odds ?? createDemoMarketSnapshot(match.id, nowIso);
 }
 
 async function cachedJson(request: Request, url: URL, buildBody: () => Promise<unknown>) {
