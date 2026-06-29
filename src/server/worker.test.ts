@@ -1,7 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import worker from "./worker";
 
 describe("worker API", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("returns matches with source metadata", async () => {
     const response = await worker.fetch(new Request("https://example.com/api/matches"));
     const body = (await response.json()) as { matches: Array<{ id: string; sourceAudit: { source_name: string } }> };
@@ -67,6 +71,55 @@ describe("worker API", () => {
     expect(await third.json()).toEqual({
       error: "pro-required",
       message: "本场免费查看次数已用完，开通赛事数据 Pro 后可继续查看实时数据、赔率变化和市场热度。"
+    });
+  });
+
+  it("uses Odds-API.io as a second live market source when configured", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string) => {
+        if (input.includes("api.odds-api.io/v3/events")) {
+          return new Response(
+            JSON.stringify([
+              {
+                id: 9912,
+                home: "Portugal",
+                away: "Uzbekistan",
+                date: "2026-06-23T16:00:00Z",
+                status: "pending"
+              }
+            ])
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            id: 9912,
+            bookmakers: {
+              Bet365: [
+                { name: "ML", updatedAt: "2026-06-23T15:55:00Z", odds: [{ home: "1.62", draw: "3.80", away: "5.20" }] },
+                { name: "Totals", updatedAt: "2026-06-23T15:56:00Z", odds: [{ hdp: 2.5, over: "1.91", under: "1.91" }] }
+              ]
+            }
+          })
+        );
+      })
+    );
+
+    const response = await worker.fetch(
+      new Request("https://example.com/api/matches/2026-06-23-por-uzb/odds", {
+        headers: { "x-visitor-id": "visitor-b" }
+      }),
+      {
+        ODDS_API_IO_KEY: "odds-api-io-key"
+      }
+    );
+    const body = (await response.json()) as { market: { provider: string; sourceName: string; home: string } };
+
+    expect(response.status).toBe(200);
+    expect(body.market).toMatchObject({
+      provider: "odds-api-io",
+      sourceName: "Odds-API.io · Bet365",
+      home: "1.62"
     });
   });
 

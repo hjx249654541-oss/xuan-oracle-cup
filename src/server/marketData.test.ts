@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { seedMatches } from "./seed";
-import { createDemoMarketSnapshot, fetchTheOddsApiMarketSnapshot } from "./marketData";
+import { createDemoMarketSnapshot, fetchOddsApiIoMarketSnapshot, fetchTheOddsApiMarketSnapshot } from "./marketData";
 
 describe("createDemoMarketSnapshot", () => {
   it("creates sourced market data without betting links", () => {
@@ -65,5 +65,70 @@ describe("createDemoMarketSnapshot", () => {
       fetchedAt: "2026-06-28T00:00:00Z",
       locked: false
     });
+  });
+
+  it("maps Odds-API.io events and odds into a sourced snapshot", async () => {
+    const match = seedMatches().find((item) => item.id === "2026-06-24-mar-hai");
+    const requestedUrls: string[] = [];
+    const fetcher = async (input: string) => {
+      requestedUrls.push(input);
+      if (input.includes("/events?")) {
+        return new Response(
+          JSON.stringify([
+            {
+              id: 9912,
+              home: "Morocco",
+              away: "Haiti",
+              date: "2026-06-24T22:00:00Z",
+              status: "pending",
+              sport: { name: "Football", slug: "football" },
+              league: { name: "World Cup", slug: "world-cup" }
+            }
+          ])
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          id: 9912,
+          home: "Morocco",
+          away: "Haiti",
+          date: "2026-06-24T22:00:00Z",
+          status: "pending",
+          bookmakers: {
+            Bet365: [
+              {
+                name: "ML",
+                updatedAt: "2026-06-24T21:58:00Z",
+                odds: [{ home: "1.44", draw: "4.50", away: "7.25" }]
+              },
+              {
+                name: "Totals",
+                updatedAt: "2026-06-24T21:59:00Z",
+                odds: [{ hdp: 2.5, over: "1.92", under: "1.88" }]
+              }
+            ]
+          }
+        })
+      );
+    };
+
+    const snapshot = await fetchOddsApiIoMarketSnapshot(match!, "api-key", "2026-06-24T22:01:00.000Z", fetcher);
+
+    expect(snapshot).toMatchObject({
+      matchId: "2026-06-24-mar-hai",
+      home: "1.44",
+      draw: "4.50",
+      away: "7.25",
+      totalLine: "2.5",
+      over: "1.92",
+      under: "1.88",
+      provider: "odds-api-io",
+      sourceName: "Odds-API.io · Bet365",
+      sourceUrl: "https://odds-api.io/",
+      fetchedAt: "2026-06-24T21:59:00Z",
+      locked: false
+    });
+    expect(requestedUrls[0]).toContain("/events?");
+    expect(requestedUrls[1]).toContain("/odds?");
   });
 });

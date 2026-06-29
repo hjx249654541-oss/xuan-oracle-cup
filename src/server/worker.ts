@@ -2,13 +2,14 @@ import { buildAccuracy } from "../lib/accuracy";
 import { buildPrediction, predictionMethods, type MethodId } from "../lib/prediction";
 import { resolveAccess, usageDateFromIso } from "./access";
 import { refreshMatchesFromEspn } from "./liveScores";
-import { createDemoMarketSnapshot, fetchTheOddsApiMarketSnapshot } from "./marketData";
+import { createDemoMarketSnapshot, fetchOddsApiIoMarketSnapshot, fetchTheOddsApiMarketSnapshot } from "./marketData";
 import { createRepository } from "./repositories";
 import type { MarketSnapshotDTO, MatchDTO } from "./types";
 
 type Env = {
   DB?: unknown;
   THE_ODDS_API_KEY?: string;
+  ODDS_API_IO_KEY?: string;
   MARKET_CACHE?: {
     get(key: string): Promise<string | null>;
     put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
@@ -120,7 +121,7 @@ async function listMatchesWithLiveScores(repository: ReturnType<typeof createRep
 }
 
 async function resolveMarketSnapshot(match: MatchDTO, nowIso: string, env?: Env): Promise<MarketSnapshotDTO> {
-  const cacheKey = `market:${match.id}:the-odds-api:v1`;
+  const cacheKey = `market:${match.id}:multi-source:v1`;
   const cached = await env?.MARKET_CACHE?.get(cacheKey).catch(() => null);
   if (cached) {
     try {
@@ -136,6 +137,14 @@ async function resolveMarketSnapshot(match: MatchDTO, nowIso: string, env?: Env)
   if (liveMarket) {
     await env?.MARKET_CACHE?.put(cacheKey, JSON.stringify(liveMarket), { expirationTtl: marketCacheTtlSeconds }).catch(() => undefined);
     return liveMarket;
+  }
+
+  const oddsApiIoMarket = env?.ODDS_API_IO_KEY
+    ? await fetchOddsApiIoMarketSnapshot(match, env.ODDS_API_IO_KEY, nowIso).catch(() => undefined)
+    : undefined;
+  if (oddsApiIoMarket) {
+    await env?.MARKET_CACHE?.put(cacheKey, JSON.stringify(oddsApiIoMarket), { expirationTtl: marketCacheTtlSeconds }).catch(() => undefined);
+    return oddsApiIoMarket;
   }
 
   return match.odds ?? createDemoMarketSnapshot(match.id, nowIso);
