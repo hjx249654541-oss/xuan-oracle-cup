@@ -50,7 +50,28 @@ const teamAliases: Record<string, string[]> = {
   日本: ["Japan", "JPN"],
   瑞典: ["Sweden", "SWE"],
   约旦: ["Jordan", "JOR"],
-  阿根廷: ["Argentina", "ARG"]
+  阿根廷: ["Argentina", "ARG"],
+  南非: ["South Africa", "RSA"],
+  加拿大: ["Canada", "CAN"],
+  巴西: ["Brazil", "BRA"],
+  德国: ["Germany", "GER"],
+  巴拉圭: ["Paraguay", "PAR"],
+  荷兰: ["Netherlands", "NED"],
+  科特迪瓦: ["Ivory Coast", "Côte d'Ivoire", "CIV"],
+  挪威: ["Norway", "NOR"],
+  法国: ["France", "FRA"],
+  墨西哥: ["Mexico", "MEX"],
+  厄瓜多尔: ["Ecuador", "ECU"],
+  比利时: ["Belgium", "BEL"],
+  塞内加尔: ["Senegal", "SEN"],
+  波黑: ["Bosnia-Herzegovina", "Bosnia and Herzegovina", "BIH"],
+  西班牙: ["Spain", "ESP"],
+  奥地利: ["Austria", "AUT"],
+  瑞士: ["Switzerland", "SUI"],
+  阿尔及利亚: ["Algeria", "ALG"],
+  澳大利亚: ["Australia", "AUS"],
+  埃及: ["Egypt", "EGY"],
+  佛得角: ["Cape Verde", "CPV"]
 };
 
 export async function refreshMatchesFromEspn(matches: MatchDTO[], fetcher: ScoreboardFetcher = fetch): Promise<MatchDTO[]> {

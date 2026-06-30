@@ -67,7 +67,28 @@ const teamAliases: Record<string, string[]> = {
   日本: ["Japan"],
   瑞典: ["Sweden"],
   约旦: ["Jordan"],
-  阿根廷: ["Argentina"]
+  阿根廷: ["Argentina"],
+  南非: ["South Africa"],
+  加拿大: ["Canada"],
+  巴西: ["Brazil"],
+  德国: ["Germany"],
+  巴拉圭: ["Paraguay"],
+  荷兰: ["Netherlands"],
+  科特迪瓦: ["Ivory Coast", "Cote d'Ivoire"],
+  挪威: ["Norway"],
+  法国: ["France"],
+  墨西哥: ["Mexico"],
+  厄瓜多尔: ["Ecuador"],
+  比利时: ["Belgium"],
+  塞内加尔: ["Senegal"],
+  波黑: ["Bosnia-Herzegovina", "Bosnia and Herzegovina"],
+  西班牙: ["Spain"],
+  奥地利: ["Austria"],
+  瑞士: ["Switzerland"],
+  阿尔及利亚: ["Algeria"],
+  澳大利亚: ["Australia"],
+  埃及: ["Egypt"],
+  佛得角: ["Cape Verde"]
 };
 
 export async function fetchOddsApiIoMarketSnapshot(
