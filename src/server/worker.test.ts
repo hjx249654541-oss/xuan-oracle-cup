@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { clearLiveScoreCacheForTests } from "./liveScores";
 import worker from "./worker";
 
 describe("worker API", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    clearLiveScoreCacheForTests();
   });
 
   it("returns matches with source metadata", async () => {
@@ -121,6 +123,44 @@ describe("worker API", () => {
       sourceName: "Odds-API.io · Bet365",
       home: "1.62"
     });
+  });
+
+  it("serves odds fallback for ESPN-discovered fixtures", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string) => {
+        return new Response(
+          JSON.stringify({
+            events: [
+              {
+                id: "760777",
+                date: "2026-07-04T18:00Z",
+                competitions: [
+                  {
+                    venue: { fullName: "Lincoln Financial Field", address: { city: "Philadelphia, Pennsylvania" } },
+                    status: { type: { completed: false, state: "pre", shortDetail: "Scheduled" } },
+                    competitors: [
+                      { homeAway: "home", score: "0", team: { displayName: "France" } },
+                      { homeAway: "away", score: "0", team: { displayName: "Norway" } }
+                    ]
+                  }
+                ]
+              }
+            ]
+          })
+        );
+      })
+    );
+
+    const response = await worker.fetch(
+      new Request("https://example.com/api/matches/espn-760777/odds", {
+        headers: { "x-visitor-id": "visitor-dynamic" }
+      })
+    );
+    const body = (await response.json()) as { market?: { matchId: string; provider: string } };
+
+    expect(response.status).toBe(200);
+    expect(body.market).toMatchObject({ matchId: "espn-760777", provider: "demo-market-data" });
   });
 
   it("returns deterministic predictions", async () => {

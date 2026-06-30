@@ -42,7 +42,7 @@ const worker = {
     const oddsMatch = url.pathname.match(/^\/api\/matches\/([^/]+)\/odds$/);
     if (request.method === "GET" && oddsMatch) {
       const matchId = oddsMatch[1];
-      const match = repository.findMatch(matchId);
+      const match = await findMatch(repository, matchId, env);
       if (!match) {
         return json({ error: "not-found" }, 404);
       }
@@ -82,7 +82,7 @@ const worker = {
 
     const predictionMatch = url.pathname.match(/^\/api\/predictions\/([^/]+)$/);
     if (request.method === "GET" && predictionMatch) {
-      const match = repository.findMatch(predictionMatch[1]);
+      const match = await findMatch(repository, predictionMatch[1], env);
       if (!match) {
         return json({ error: "not-found" }, 404);
       }
@@ -118,6 +118,15 @@ async function listMatchesWithLiveScores(repository: ReturnType<typeof createRep
   const matches = await refreshMatchesFromEspn(repository.listMatches());
   await env?.MARKET_CACHE?.put(matchCacheKey, JSON.stringify(matches), { expirationTtl: matchCacheTtlSeconds }).catch(() => undefined);
   return matches;
+}
+
+async function findMatch(repository: ReturnType<typeof createRepository>, matchId: string, env?: Env) {
+  const seeded = repository.findMatch(matchId);
+  if (seeded) {
+    return seeded;
+  }
+  const liveMatches = await listMatchesWithLiveScores(repository, env);
+  return liveMatches.find((match) => match.id === matchId);
 }
 
 async function resolveMarketSnapshot(match: MatchDTO, nowIso: string, env?: Env): Promise<MarketSnapshotDTO> {

@@ -96,4 +96,110 @@ describe("refreshMatchesFromEspn", () => {
     expect(Date.now() - startedAt).toBeLessThan(1600);
     expect(matches.find((match) => match.id === "2026-06-24-mar-hai")?.result).toBeUndefined();
   });
+
+  it("adds ESPN fixtures that are not in the seeded schedule", async () => {
+    const fetcher = async (input: string) => {
+      if (!input.includes("20260704")) {
+        return new Response(JSON.stringify({ events: [] }));
+      }
+
+      return new Response(
+        JSON.stringify({
+          events: [
+            {
+              id: "760777",
+              date: "2026-07-04T18:00Z",
+              competitions: [
+                {
+                  venue: { fullName: "Lincoln Financial Field", address: { city: "Philadelphia, Pennsylvania" } },
+                  status: { type: { completed: false, state: "pre", shortDetail: "Scheduled" } },
+                  competitors: [
+                    { homeAway: "home", score: "0", team: { displayName: "France" } },
+                    { homeAway: "away", score: "0", team: { displayName: "Norway" } }
+                  ]
+                }
+              ]
+            }
+          ]
+        })
+      );
+    };
+
+    const matches = await refreshMatchesFromEspn(seedMatches(), fetcher, new Date("2026-07-01T00:00:00.000Z"));
+    const added = matches.find((match) => match.id === "espn-760777");
+
+    expect(added).toMatchObject({
+      id: "espn-760777",
+      date: "2026-07-04",
+      localTime: "14:00",
+      group: "ESPN赛程",
+      phase: "淘汰赛",
+      home: "法国",
+      away: "挪威",
+      venue: "Lincoln Financial Field",
+      city: "费城",
+      country: "美国",
+      lastUpdated: "2026-07-01"
+    });
+    expect(added?.result).toBeUndefined();
+    expect(added?.sourceAudit.provider).toBe("espn-scoreboard");
+  });
+
+  it("localizes ESPN placeholder winners for future knockout fixtures", async () => {
+    const fetcher = async () =>
+      new Response(
+        JSON.stringify({
+          events: [
+            {
+              id: "760503",
+              date: "2026-07-04T21:00Z",
+              competitions: [
+                {
+                  venue: { fullName: "MetLife Stadium", address: { city: "East Rutherford, New Jersey" } },
+                  status: { type: { completed: false, state: "pre", shortDetail: "Scheduled" } },
+                  competitors: [
+                    { homeAway: "home", score: "0", team: { displayName: "Paraguay" } },
+                    { homeAway: "away", score: "0", team: { displayName: "Round of 32 5 Winner" } }
+                  ]
+                }
+              ]
+            }
+          ]
+        })
+      );
+
+    const matches = await refreshMatchesFromEspn(seedMatches(), fetcher, new Date("2026-07-01T00:00:00.000Z"));
+    const added = matches.find((match) => match.id === "espn-760503");
+
+    expect(added?.home).toBe("巴拉圭");
+    expect(added?.away).toBe("32强第5场胜者");
+  });
+
+  it("does not append stale ESPN fixtures outside the rolling update window", async () => {
+    const fetcher = async () =>
+      new Response(
+        JSON.stringify({
+          events: [
+            {
+              id: "760111",
+              date: "2026-06-20T18:00Z",
+              competitions: [
+                {
+                  venue: { fullName: "Old Stadium", address: { city: "Houston, Texas" } },
+                  status: { type: { completed: true, state: "post", shortDetail: "FT" } },
+                  competitors: [
+                    { homeAway: "home", score: "1", team: { displayName: "France" } },
+                    { homeAway: "away", score: "0", team: { displayName: "Norway" } }
+                  ]
+                }
+              ]
+            }
+          ]
+        })
+      );
+
+    const matches = await refreshMatchesFromEspn(seedMatches(), fetcher, new Date("2026-07-01T00:00:00.000Z"));
+
+    expect(matches.find((match) => match.id === "espn-760111")).toBeUndefined();
+  });
 });
