@@ -17,6 +17,7 @@ import { formatChinaKickoff, formatLocalKickoff, getChinaKickoffDate, worldCupMa
 import { buildPrediction, getMethodAuditTrail, predictionMethods, type MethodAudit, type MethodId } from "./lib/prediction";
 import { buildAccuracy, type MethodAccuracy } from "./lib/accuracy";
 import { loadAccuracy, loadMarketData, loadMatches, type MarketDataResponse } from "./lib/apiClient";
+import { getDefaultScheduleDate, getDefaultSelectedMatchId } from "./lib/scheduleView";
 import { getPrimaryActionLabel } from "./lib/uiCopy";
 import type { MatchDTO, MarketSnapshotDTO } from "./server/types";
 
@@ -50,7 +51,7 @@ function App() {
   const [accuracy, setAccuracy] = useState<MethodAccuracy[]>(buildAccuracy(worldCupMatches));
 
   useEffect(() => {
-    refreshRemoteData();
+    refreshRemoteData({ jumpToToday: true });
     const clockId = window.setInterval(() => setTodayKey(getTodayDateKey()), 60000);
     const intervalId = window.setInterval(refreshRemoteData, 60000);
     return () => {
@@ -104,12 +105,23 @@ function App() {
   }
 
   function refreshSchedule() {
-    refreshRemoteData();
+    refreshRemoteData({ jumpToToday: true });
   }
 
-  function refreshRemoteData() {
+  function refreshRemoteData(options: { jumpToToday?: boolean } = {}) {
     loadMatches()
-      .then((items) => setMatches(items.map(matchDtoToWorldCupMatch)))
+      .then((items) => {
+        const nextMatches = items.map(matchDtoToWorldCupMatch);
+        setMatches(nextMatches);
+        if (options.jumpToToday) {
+          const nextToday = getTodayDateKey();
+          const nextDate = getDefaultScheduleDate(nextMatches, nextToday);
+          setTodayKey(nextToday);
+          setDateTouched(false);
+          setActiveDate(nextDate);
+          setSelectedMatchId(getDefaultSelectedMatchId(nextMatches, nextDate));
+        }
+      })
       .catch(() => setMatches(worldCupMatches));
     loadAccuracy()
       .then(setAccuracy)
@@ -197,7 +209,14 @@ function App() {
 
               <AccuracyPanel accuracy={accuracy} compact />
 
-              <OddsPanel match={selectedMatch} marketData={marketData} marketError={marketError} onReveal={revealMarketData} />
+              <OddsPanel
+                match={selectedMatch}
+                matches={matches}
+                marketData={marketData}
+                marketError={marketError}
+                onReveal={revealMarketData}
+                onSelectMatch={setSelectedMatchId}
+              />
 
               <div className="match-list">
                 {(visibleMatches.length > 0 ? visibleMatches : matches.slice(0, 3)).map((match) => (
@@ -250,7 +269,14 @@ function App() {
                 </div>
               </section>
 
-              <OddsPanel match={selectedMatch} marketData={marketData} marketError={marketError} onReveal={revealMarketData} />
+              <OddsPanel
+                match={selectedMatch}
+                matches={matches}
+                marketData={marketData}
+                marketError={marketError}
+                onReveal={revealMarketData}
+                onSelectMatch={setSelectedMatchId}
+              />
             </>
           )}
 
@@ -395,14 +421,18 @@ function MatchCard({ match, selected, onSelect }: { match: WorldCupMatch; select
 
 function OddsPanel({
   match,
+  matches,
   marketData,
   marketError,
-  onReveal
+  onReveal,
+  onSelectMatch
 }: {
   match: WorldCupMatch;
+  matches: WorldCupMatch[];
   marketData: MarketDataResponse | null;
   marketError: string;
   onReveal: () => void;
+  onSelectMatch: (matchId: string) => void;
 }) {
   const activeMarketData = marketData?.market.matchId === match.id ? marketData : null;
   const odds = activeMarketData?.market ?? match.odds;
@@ -418,6 +448,7 @@ function OddsPanel({
           <h2>实时盘口</h2>
           <span>{updatedAt}</span>
         </div>
+        <MarketMatchSelect match={match} matches={matches} onSelectMatch={onSelectMatch} />
         <div className="odds-empty">
           <strong>{match.home} vs {match.away}</strong>
           <span>暂无赛前快照，可查看实时数据源返回。</span>
@@ -445,6 +476,7 @@ function OddsPanel({
         <h2>实时盘口</h2>
         <span>{updatedAt}</span>
       </div>
+      <MarketMatchSelect match={match} matches={matches} onSelectMatch={onSelectMatch} />
       <div className={odds.locked ? "odds-grid locked" : "odds-grid"}>
         <div>
           <span>{match.home}</span>
@@ -480,6 +512,30 @@ function OddsPanel({
       <p className="data-source-line">数据类型：{dataType} · 数据来源：{sourceName}</p>
       {activeMarketData && <p className="data-disclaimer">{activeMarketData.disclaimer}</p>}
     </section>
+  );
+}
+
+function MarketMatchSelect({
+  match,
+  matches,
+  onSelectMatch
+}: {
+  match: WorldCupMatch;
+  matches: WorldCupMatch[];
+  onSelectMatch: (matchId: string) => void;
+}) {
+  const options = [...matches].sort((left, right) => `${getChinaKickoffDate(left)} ${formatChinaKickoff(left)}`.localeCompare(`${getChinaKickoffDate(right)} ${formatChinaKickoff(right)}`));
+  return (
+    <label className="market-match-select">
+      <span>选择盘口比赛</span>
+      <select value={match.id} onChange={(event) => onSelectMatch(event.target.value)}>
+        {options.map((item) => (
+          <option key={item.id} value={item.id}>
+            {formatChinaKickoff(item)} {item.home} vs {item.away}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -617,15 +673,6 @@ function getTodayDateKey() {
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const date = String(now.getDate()).padStart(2, "0");
   return `${year}-${month}-${date}`;
-}
-
-function getDefaultScheduleDate(matches: WorldCupMatch[], todayKey: string) {
-  const dates = Array.from(new Set(matches.map(getChinaKickoffDate))).sort();
-  return dates.find((date) => date === todayKey) ?? dates.find((date) => date > todayKey) ?? dates.at(-1) ?? todayKey;
-}
-
-function getDefaultSelectedMatchId(matches: WorldCupMatch[], dateKey: string) {
-  return matches.find((match) => getChinaKickoffDate(match) === dateKey)?.id ?? matches[0]?.id ?? worldCupMatches[0].id;
 }
 
 export default App;

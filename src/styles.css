@@ -421,6 +421,27 @@ p {
   background: rgba(3, 13, 22, 0.72);
 }
 
+.market-match-select {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 12px;
+}
+
+.market-match-select span {
+  color: rgba(232, 241, 255, 0.62);
+  font-size: 12px;
+}
+
+.market-match-select select {
+  width: 100%;
+  min-height: 40px;
+  color: #f8fbff;
+  border: 1px solid rgba(91, 255, 243, 0.26);
+  border-radius: 8px;
+  background: rgba(6, 17, 28, 0.94);
+  padding: 0 10px;
+}
+
 .schedule-panel .accuracy-panel {
   margin: 0 0 12px;
 }
