@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getDefaultScheduleDate, getDefaultSelectedMatchId } from "./scheduleView";
+import { getChinaTodayDateKey, getDefaultScheduleDate, getDefaultSelectedMatchId } from "./scheduleView";
 import type { WorldCupMatch } from "../data/schedule";
 
 const baseMatch: WorldCupMatch = {
@@ -36,5 +36,9 @@ describe("schedule view defaults", () => {
 
     expect(getDefaultScheduleDate(matches, "2026-07-02")).toBe("2026-07-04");
     expect(getDefaultSelectedMatchId(matches, "2026-07-04")).toBe("future");
+  });
+
+  it("uses China time for today's schedule key", () => {
+    expect(getChinaTodayDateKey(new Date("2026-07-01T18:30:00.000Z"))).toBe("2026-07-02");
   });
 });

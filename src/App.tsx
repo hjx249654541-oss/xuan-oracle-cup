@@ -16,8 +16,8 @@ import {
 import { formatChinaKickoff, formatLocalKickoff, getChinaKickoffDate, worldCupMatches, type MatchPhase, type WorldCupMatch } from "./data/schedule";
 import { buildPrediction, getMethodAuditTrail, predictionMethods, type MethodAudit, type MethodId } from "./lib/prediction";
 import { buildAccuracy, type MethodAccuracy } from "./lib/accuracy";
-import { loadAccuracy, loadMarketData, loadMatches, type MarketDataResponse } from "./lib/apiClient";
-import { getDefaultScheduleDate, getDefaultSelectedMatchId } from "./lib/scheduleView";
+import { loadMarketData, loadMatches, type MarketDataResponse } from "./lib/apiClient";
+import { getChinaTodayDateKey, getDefaultScheduleDate, getDefaultSelectedMatchId } from "./lib/scheduleView";
 import { getPrimaryActionLabel } from "./lib/uiCopy";
 import type { MatchDTO, MarketSnapshotDTO } from "./server/types";
 
@@ -113,6 +113,7 @@ function App() {
       .then((items) => {
         const nextMatches = items.map(matchDtoToWorldCupMatch);
         setMatches(nextMatches);
+        setAccuracy(buildAccuracy(nextMatches));
         if (options.jumpToToday) {
           const nextToday = getTodayDateKey();
           const nextDate = getDefaultScheduleDate(nextMatches, nextToday);
@@ -122,10 +123,10 @@ function App() {
           setSelectedMatchId(getDefaultSelectedMatchId(nextMatches, nextDate));
         }
       })
-      .catch(() => setMatches(worldCupMatches));
-    loadAccuracy()
-      .then(setAccuracy)
-      .catch(() => setAccuracy(buildAccuracy(worldCupMatches)));
+      .catch(() => {
+        setMatches(worldCupMatches);
+        setAccuracy(buildAccuracy(worldCupMatches));
+      });
   }
 
   async function revealMarketData() {
@@ -668,11 +669,7 @@ function marketDataType(provider: string | undefined, locked: boolean | undefine
 }
 
 function getTodayDateKey() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const date = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${date}`;
+  return getChinaTodayDateKey();
 }
 
 export default App;

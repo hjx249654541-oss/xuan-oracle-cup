@@ -170,7 +170,7 @@ describe("worker API", () => {
     expect(await left.json()).toEqual(await right.json());
   });
 
-  it("delegates non-api requests to static assets when available", async () => {
+  it("serves html assets without browser or CDN caching", async () => {
     const response = await worker.fetch(new Request("https://example.com/"), {
       ASSETS: {
         fetch: async () => new Response("<!doctype html>", { headers: { "content-type": "text/html" } })
@@ -178,6 +178,30 @@ describe("worker API", () => {
     });
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store, no-cache, must-revalidate, max-age=0");
     expect(await response.text()).toContain("<!doctype html>");
+  });
+
+  it("serves html asset headers for preflight-style HEAD requests", async () => {
+    const response = await worker.fetch(new Request("https://example.com/", { method: "HEAD" }), {
+      ASSETS: {
+        fetch: async () => new Response(null, { headers: { "content-type": "text/html" } })
+      }
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store, no-cache, must-revalidate, max-age=0");
+  });
+
+  it("keeps normal cache headers for fingerprinted static assets", async () => {
+    const response = await worker.fetch(new Request("https://example.com/assets/index.js"), {
+      ASSETS: {
+        fetch: async () => new Response("console.log('ok')", { headers: { "content-type": "application/javascript", "cache-control": "public, max-age=31536000" } })
+      }
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("public, max-age=31536000");
+    expect(await response.text()).toContain("ok");
   });
 });

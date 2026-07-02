@@ -97,13 +97,35 @@ const worker = {
       });
     }
 
-    if (env?.ASSETS && request.method === "GET" && !url.pathname.startsWith("/api/")) {
-      return env.ASSETS.fetch(request);
+    if (env?.ASSETS && (request.method === "GET" || request.method === "HEAD") && !url.pathname.startsWith("/api/")) {
+      return serveAsset(request, env);
     }
 
     return json({ error: "not-found" }, 404);
   }
 };
+
+async function serveAsset(request: Request, env: Env) {
+  const response = await env.ASSETS?.fetch(request);
+  if (!response) {
+    return json({ error: "not-found" }, 404);
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("text/html")) {
+    return response;
+  }
+
+  const headers = new Headers(response.headers);
+  headers.set("cache-control", "no-store, no-cache, must-revalidate, max-age=0");
+  headers.set("pragma", "no-cache");
+  headers.set("expires", "0");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
+}
 
 async function listMatchesWithLiveScores(repository: ReturnType<typeof createRepository>, env?: Env) {
   const cached = await env?.MARKET_CACHE?.get(matchCacheKey).catch(() => null);

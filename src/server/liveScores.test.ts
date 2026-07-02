@@ -202,4 +202,22 @@ describe("refreshMatchesFromEspn", () => {
 
     expect(matches.find((match) => match.id === "espn-760111")).toBeUndefined();
   });
+
+  it("only requests the rolling ESPN update window", async () => {
+    const requestedDates: string[] = [];
+    const fetcher = async (input: string) => {
+      const date = new URL(input).searchParams.get("dates");
+      if (date) {
+        requestedDates.push(date);
+      }
+      return new Response(JSON.stringify({ events: [] }));
+    };
+
+    await refreshMatchesFromEspn(seedMatches(), fetcher, new Date("2026-07-02T00:00:00.000Z"));
+
+    expect(requestedDates).toContain("20260702");
+    expect(requestedDates).toContain("20260716");
+    expect(requestedDates).not.toContain("20260623");
+    expect(requestedDates.length).toBeLessThanOrEqual(18);
+  });
 });

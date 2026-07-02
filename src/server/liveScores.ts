@@ -223,11 +223,17 @@ function fetchCachedEspnDate(date: string, fetcher: ScoreboardFetcher) {
 }
 
 function buildRefreshDates(matches: MatchDTO[], now: Date) {
-  const dates = new Set(matches.map((match) => match.date));
+  const dates = new Set<string>();
   const window = buildRollingWindow(now);
   for (let time = window.start; time <= window.end; time += 24 * 60 * 60 * 1000) {
     dates.add(new Date(time).toISOString().slice(0, 10));
   }
+  matches.forEach((match) => {
+    const time = Date.parse(`${match.date}T00:00:00.000Z`);
+    if (Number.isFinite(time) && time >= window.start && time <= window.end) {
+      dates.add(match.date);
+    }
+  });
   return Array.from(dates).sort();
 }
 
