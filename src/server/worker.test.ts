@@ -13,8 +13,26 @@ describe("worker API", () => {
     const body = (await response.json()) as { matches: Array<{ id: string; sourceAudit: { source_name: string } }> };
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("access-control-allow-origin")).toBe("*");
     expect(body.matches.length).toBeGreaterThan(0);
     expect(body.matches[0].sourceAudit.source_name.length).toBeGreaterThan(0);
+  });
+
+  it("handles CORS preflight for mirrored frontend API calls", async () => {
+    const response = await worker.fetch(
+      new Request("https://example.com/api/matches/2026-06-23-por-uzb/odds", {
+        method: "OPTIONS",
+        headers: {
+          origin: "https://hjx249654541-oss.github.io",
+          "access-control-request-method": "GET",
+          "access-control-request-headers": "x-visitor-id"
+        }
+      })
+    );
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("access-control-allow-origin")).toBe("*");
+    expect(response.headers.get("access-control-allow-headers")).toContain("x-visitor-id");
   });
 
   it("serves matches from edge cache when available", async () => {

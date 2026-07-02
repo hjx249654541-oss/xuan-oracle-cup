@@ -21,7 +21,10 @@ type Env = {
 
 const jsonHeaders = {
   "content-type": "application/json; charset=utf-8",
-  "cache-control": "no-store"
+  "cache-control": "no-store",
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, OPTIONS",
+  "access-control-allow-headers": "content-type, x-visitor-id"
 };
 
 const matchCacheKey = "scoreboard:matches:v3";
@@ -34,6 +37,10 @@ const worker = {
   async fetch(request: Request, env?: Env): Promise<Response> {
     const repository = createRepository(env?.DB);
     const url = new URL(request.url);
+
+    if (request.method === "OPTIONS" && url.pathname.startsWith("/api/")) {
+      return new Response(null, { status: 204, headers: jsonHeaders });
+    }
 
     if (request.method === "GET" && url.pathname === "/api/matches") {
       return cachedJson(request, url, async () => ({ matches: await listMatchesWithLiveScores(repository, env) }));
