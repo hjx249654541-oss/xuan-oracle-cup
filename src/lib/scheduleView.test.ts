@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getChinaTodayDateKey, getDefaultScheduleDate, getDefaultSelectedMatchId } from "./scheduleView";
+import { getChinaTodayDateKey, getDefaultScheduleDate, getDefaultSelectedMatchId, getScheduleDateWindow } from "./scheduleView";
 import type { WorldCupMatch } from "../data/schedule";
 
 const baseMatch: WorldCupMatch = {
@@ -40,5 +40,12 @@ describe("schedule view defaults", () => {
 
   it("uses China time for today's schedule key", () => {
     expect(getChinaTodayDateKey(new Date("2026-07-01T18:30:00.000Z"))).toBe("2026-07-02");
+  });
+
+  it("shows a compact date window around the active date", () => {
+    const dates = ["2026-06-24", "2026-06-25", "2026-06-26", "2026-06-28", "2026-07-01", "2026-07-02", "2026-07-03"];
+
+    expect(getScheduleDateWindow(dates, "2026-07-02")).toEqual(["2026-07-01", "2026-07-02", "2026-07-03"]);
+    expect(getScheduleDateWindow(dates, "2026-06-24")).toEqual(["2026-06-24", "2026-06-25", "2026-06-26", "2026-06-28"]);
   });
 });

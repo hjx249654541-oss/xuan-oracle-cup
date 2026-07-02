@@ -223,12 +223,19 @@ p {
 .date-list {
   display: flex;
   gap: 8px;
-  overflow-x: auto;
-  scrollbar-width: none;
+  justify-content: center;
+  min-width: 0;
 }
 
-.date-list::-webkit-scrollbar {
-  display: none;
+.date-arrow {
+  width: 24px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  color: #f8fbff;
+  background: transparent;
+  padding: 0;
 }
 
 .date-pill {

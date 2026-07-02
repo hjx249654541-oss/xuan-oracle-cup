@@ -17,7 +17,7 @@ import { formatChinaKickoff, formatLocalKickoff, getChinaKickoffDate, worldCupMa
 import { buildPrediction, getMethodAuditTrail, predictionMethods, type MethodAudit, type MethodId } from "./lib/prediction";
 import { buildAccuracy, type MethodAccuracy } from "./lib/accuracy";
 import { loadMarketData, loadMatches, type MarketDataResponse } from "./lib/apiClient";
-import { getChinaTodayDateKey, getDefaultScheduleDate, getDefaultSelectedMatchId } from "./lib/scheduleView";
+import { getChinaTodayDateKey, getDefaultScheduleDate, getDefaultSelectedMatchId, getScheduleDateWindow } from "./lib/scheduleView";
 import { getPrimaryActionLabel } from "./lib/uiCopy";
 import type { MatchDTO, MarketSnapshotDTO } from "./server/types";
 
@@ -49,6 +49,7 @@ function App() {
   const [marketData, setMarketData] = useState<MarketDataResponse | null>(null);
   const [marketError, setMarketError] = useState("");
   const [accuracy, setAccuracy] = useState<MethodAccuracy[]>(buildAccuracy(worldCupMatches));
+  const visibleDates = useMemo(() => getScheduleDateWindow(dates, activeDate), [activeDate, dates]);
 
   useEffect(() => {
     refreshRemoteData({ jumpToToday: true });
@@ -106,6 +107,29 @@ function App() {
 
   function refreshSchedule() {
     refreshRemoteData({ jumpToToday: true });
+  }
+
+  function chooseScheduleDate(date: string) {
+    setDateTouched(true);
+    setActiveDate(date);
+    setSelectedMatchId(getDefaultSelectedMatchId(matches, date));
+  }
+
+  function jumpToToday() {
+    const nextToday = getTodayDateKey();
+    const nextDate = getDefaultScheduleDate(matches, nextToday);
+    setTodayKey(nextToday);
+    setDateTouched(false);
+    setActiveDate(nextDate);
+    setSelectedMatchId(getDefaultSelectedMatchId(matches, nextDate));
+  }
+
+  function shiftScheduleDate(direction: -1 | 1) {
+    const currentIndex = dates.indexOf(activeDate);
+    const nextDate = dates[Math.min(Math.max(currentIndex + direction, 0), dates.length - 1)];
+    if (nextDate) {
+      chooseScheduleDate(nextDate);
+    }
   }
 
   function refreshRemoteData(options: { jumpToToday?: boolean } = {}) {
@@ -178,7 +202,17 @@ function App() {
             <section className="schedule-panel" aria-label="世界杯赛程">
               <div className="filter-row">
                 {(["全部", "小组赛", "淘汰赛"] as const).map((item) => (
-                  <button key={item} className={phase === item ? "filter active" : "filter"} type="button" onClick={() => setPhase(item)}>
+                  <button
+                    key={item}
+                    className={phase === item ? "filter active" : "filter"}
+                    type="button"
+                    onClick={() => {
+                      setPhase(item);
+                      if (item === "全部") {
+                        jumpToToday();
+                      }
+                    }}
+                  >
                     {item === "全部" ? "今日" : item}
                   </button>
                 ))}
@@ -188,24 +222,25 @@ function App() {
               </div>
 
               <div className="date-strip" aria-label="比赛日期">
-                <ChevronLeft size={22} aria-hidden="true" />
+                <button className="date-arrow" type="button" aria-label="上一比赛日" onClick={() => shiftScheduleDate(-1)}>
+                  <ChevronLeft size={22} aria-hidden="true" />
+                </button>
                 <div className="date-list">
-                  {dates.map((date) => (
+                  {visibleDates.map((date) => (
                     <button
                       key={date}
                       className={activeDate === date ? "date-pill active" : "date-pill"}
                       type="button"
-                      onClick={() => {
-                        setDateTouched(true);
-                        setActiveDate(date);
-                      }}
+                      onClick={() => chooseScheduleDate(date)}
                     >
                       <strong>{date.slice(5).replace("-", "/")}</strong>
                       <span>{date === todayKey ? "今天" : weekdayLabel(date)}</span>
                     </button>
                   ))}
                 </div>
-                <ChevronRight size={22} aria-hidden="true" />
+                <button className="date-arrow" type="button" aria-label="下一比赛日" onClick={() => shiftScheduleDate(1)}>
+                  <ChevronRight size={22} aria-hidden="true" />
+                </button>
               </div>
 
               <AccuracyPanel accuracy={accuracy} compact />

@@ -9,6 +9,15 @@ export function getDefaultSelectedMatchId(matches: WorldCupMatch[], dateKey: str
   return matches.find((match) => getChinaKickoffDate(match) === dateKey)?.id ?? matches[0]?.id ?? worldCupMatches[0].id;
 }
 
+export function getScheduleDateWindow(dates: string[], activeDate: string, size = 4) {
+  if (dates.length <= size) {
+    return dates;
+  }
+  const activeIndex = Math.max(dates.indexOf(activeDate), 0);
+  const start = Math.max(activeIndex - 1, 0);
+  return dates.slice(start, start + size);
+}
+
 export function getChinaTodayDateKey(now = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Shanghai",
